@@ -1,5 +1,5 @@
-#include "info.h"
-#include "tui.h"
+#include "../include/info.h"
+#include "../include/tui.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,7 +23,7 @@ void infodraw(int row, int col, int cols, char* clr, char* title, frac_t* value)
 		if ((isnew = cmpi(&info, infos[i]) == 0)) {
 			info_t oinfo = info;
 			info = *infos[i];
-			freei(&oinfo);
+			free(oinfo.odraw);
 			break;}
 
 	if (isnew) {

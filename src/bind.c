@@ -1,4 +1,4 @@
-#include "bind.h"
+#include "../include/bind.h"
 #include <stdlib.h>
 
 // local func defs

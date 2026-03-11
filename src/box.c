@@ -1,5 +1,5 @@
-#include "box.h"
-#include "tui.h"
+#include "../include/box.h"
+#include "../include/tui.h"
 #include <stdio.h>
 #include <string.h>
 

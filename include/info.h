@@ -1,6 +1,6 @@
 #ifndef TUI_INFO_H
 #define TUI_INFO_H
-#include <frac.h>
+#include <wrnfrac/frac.h>
 
 typedef struct {
 	int row;

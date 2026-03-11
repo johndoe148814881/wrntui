@@ -1,5 +1,5 @@
-#include "msg.h"
-#include "tui.h"
+#include "../include/msg.h"
+#include "../include/tui.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,7 +23,7 @@ void msgdraw(int row, int col, int cols, char* buf) {
 		if ((isnew = cmpm(&msg, msgs[i]) == 0)) {
 			msg_t omsg = msg;
 			msg = *msgs[i];
-			freem(&omsg);
+			free(omsg.odraw);
 			break;}
 
 	if (isnew) {

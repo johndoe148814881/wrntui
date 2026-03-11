@@ -1,4 +1,5 @@
-#include "graph.h"
+#include "../include/graph.h"
+#include "../include/tui.h"
 
 /*typedef struct {
 	char* title;

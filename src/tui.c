@@ -1,4 +1,4 @@
-#include "tui.h"
+#include "../include/tui.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -34,7 +34,7 @@ char* msgbuf = NULL;
 int cmdbuft;
 
 // local func defs
-void sigint();
+void sigint(int);
 void parseargs(void*);
 void initin();
 int initout();
@@ -69,7 +69,8 @@ void* tui(void* arg) {
 	return NULL;}
 
 // local funcs
-void sigint() {
+void sigint(int sig) {
+	(void)sig;
 	*isrunning = 0;}
 
 void parseargs(void* args) {

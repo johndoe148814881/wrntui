@@ -1,4 +1,5 @@
-#include "cmd.h"
+#include "../include/cmd.h"
+#include "../include/tui.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>

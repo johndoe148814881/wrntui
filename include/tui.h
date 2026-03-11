@@ -1,5 +1,11 @@
 #ifndef TUI_TUI_H
 #define TUI_TUI_H
+#include "bind.h"
+#include "box.h"
+#include "cmd.h"
+#include "graph.h"
+#include "info.h"
+#include "msg.h"
 #define CMDSUCCESS 0
 #define CMDINVALID -1
 #define CMDINVALIDARGV -2

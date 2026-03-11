@@ -115,8 +115,13 @@ static int initout() {
 		FOREERR = FOREERR24BIT;
 		FORESUC = FORESUC24BIT;}
 	else {
-		FOREERR = FOREERR8BIT;
-		FORESUC = FORESUC8BIT;}
+		FORE1 = FOREWHITTY;
+		FORE2 = FOREWHITTY;
+		FORE3 = FOREWHITTY;
+		FORE4 = FOREWHITTY;
+		FORE5 = FOREWHITTY;
+		FOREERR = FOREERRTTY;
+		FORESUC = FORESUCTTY;}
 
 	struct winsize w; // get width and height of terminal/tty
 	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1 || w.ws_row == 0 || w.ws_col == 0)

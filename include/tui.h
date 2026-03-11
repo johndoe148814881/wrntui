@@ -33,8 +33,9 @@ extern char* MOVECURS(int, int);
 #define FORE524BIT "\033[38;2;160;100;110m" 
 #define FOREERR24BIT "\033[38;2;163;74;74m"
 #define FORESUC24BIT "\033[38;2;92;158;100m"
-#define FOREERR8BIT "\033[38;5;160m"
-#define FORESUC8BIT "\033[38;5;34m"
+#define FOREWHITTY "\033[37m"
+#define FOREERRTTY "\033[31m"
+#define FORESUCTTY "\033[32m" 
 // variable attributes influenced by terminal context
 extern char* FORE1;
 extern char* FORE2;

@@ -7,7 +7,7 @@ PREFIX ?= /usr/local
 LIBDIR ?= $(PREFIX)/lib
 INCLUDEDIR ?= $(PREFIX)/include
 
-LIBNAME ?= tuilib
+LIBNAME ?= wrntui
 STATIC_LIB := lib$(LIBNAME).a
 
 SRC_DIR := src

@@ -5,10 +5,10 @@
 #include <string.h>
 
 // local func defs
-msg_t newm(int, int, int, char*);
-void freem(msg_t*);
-int cmpm(msg_t*, msg_t*);
-void drawm(msg_t*);
+static msg_t newm(int, int, int, char*);
+static void freem(msg_t*);
+static int cmpm(msg_t*, msg_t*);
+static void drawm(msg_t*);
 
 // local vars
 msg_t** msgs = 0; int nmsgs = 0;
@@ -41,24 +41,24 @@ void msgfreeall() {
 	msgs = 0; nmsgs = 0;}
 
 // local funcs
-msg_t newm(int row, int col, int cols, char* buf) {
+static msg_t newm(int row, int col, int cols, char* buf) {
 	char* odraw = malloc(cols + 1);
 	memset(odraw, '\0', cols + 1);
 
 	return (msg_t){row, col, cols, buf, odraw};}
 
-void freem(msg_t* msg) {
+static void freem(msg_t* msg) {
 	free(msg->odraw);
 	free(msg);
 	msg = 0;}
 
-int cmpm(msg_t* a, msg_t* b) {
+static int cmpm(msg_t* a, msg_t* b) {
 	return !(a->row == b->row &&
 		a->col == b->col &&
 		a->cols == b->cols &&
 		a->buf == b->buf);}
 
-void drawm(msg_t* msg) {
+static void drawm(msg_t* msg) {
 	char draw[msg->cols + 1];
 	strcpy(draw, msg->buf);
 	memset(draw + strlen(msg->buf), ' ', msg->cols - strlen(msg->buf));

@@ -5,15 +5,20 @@
 #include <ctype.h>
 
 // local func defs
-cmd_t newc(char*, int (*)(int, char**));
-void freec(cmd_t*);
-void freeta();
+static void newt(char*, int*, char***);
+static cmd_t newc(char*, int (*)(int, char**));
+static void freec(cmd_t*);
+static void freeta();
 
 // global vars
+char cmdprefix = ':';
 cmd_t** cmds = 0; int ncmds = 0;
 char** tokens = 0; int ntokens = 0;
 
 // global funcs
+void cmdsetprefix(char prefix) {
+	cmdprefix = prefix;}
+
 void cmdnew(char* cmd, int (*func)(int, char**)) {
 	cmds = realloc(cmds, ++ncmds * sizeof(cmd_t*));
 	cmds[ncmds - 1] = malloc(sizeof(cmd_t));
@@ -26,7 +31,26 @@ void cmdfreeall() {
 	free(cmds);
 	cmds = 0; ncmds = 0;}
 
-/* author: chatgpt & claude */ void newt(char* cmd, int* argcp, char*** argvp) {
+int cmdexec(char* cmdbuf) {
+	int argc; char** argv;
+	newt(cmdbuf, &argc, &argv);
+
+	cmd_t* cmd = 0;
+	for (int i = 0; i < ncmds; ++i)
+		if (strcmp(cmds[i]->cmd, argv[0] + 1) == 0) {
+			cmd = cmds[i];
+			break;}
+
+	if (!cmd) {
+		freeta();
+		return CMDINVALID;}
+
+	int ret = cmd->func(argc, argv);
+	freeta();
+	return ret;}
+
+// local funcs
+/* author: chatgpt & claude */ static void newt(char* cmd, int* argcp, char*** argvp) {
 	size_t len = strlen(cmd);
 	char* copy = malloc(len + 1);
 	if (!copy)
@@ -77,35 +101,19 @@ void cmdfreeall() {
 	*argcp = argc;
 	*argvp = argv;}
 
-int cmdexec(char* str) {
-	cmd_t* cmd = 0;
-	for (int i = 0; i < ncmds; ++i)
-		if (strcmp(cmds[i]->cmd, str + 1) == 0) {
-			cmd = cmds[i];
-			break;}
 
-	if (!cmd)
-		return CMDINVALID;
 
-	int argc; char** argv;
-	newt(str, &argc, &argv);
-	int ret = cmd->func(argc, argv);
-	freeta()
-		;
-	return ret;}
-
-// local funcs
-cmd_t newc(char* cmd, int (*func)(int, char**)) {
+static cmd_t newc(char* cmd, int (*func)(int, char**)) {
 	char* heapcmd = malloc(strlen(cmd) + 1);
 	strcpy(heapcmd, cmd);
 	return (cmd_t){heapcmd, func};}
 
-void freec(cmd_t* cmd) {
+static void freec(cmd_t* cmd) {
 	free(cmd->cmd);
 	free(cmd);
 	cmd = 0;}
 
-void freeta() {
+static void freeta() {
 	for (int i = 0; i < ntokens; i++)
 		free(tokens[i]);
 

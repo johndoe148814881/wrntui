@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 // local func defs
-void freeb(bind_t*);
+static void freeb(bind_t*);
 
 // global vars
 bind_t** binds = 0; int nbinds = 0;
@@ -21,7 +21,7 @@ void bindfreeall() {
 	binds = 0; nbinds = 0;}
 
 // local funcs
-void freeb(bind_t* bind) {
+static void freeb(bind_t* bind) {
 	free(bind);
 	bind = 0;}
 

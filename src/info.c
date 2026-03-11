@@ -5,10 +5,10 @@
 #include <string.h>
 
 // local func defs
-info_t newi(int, int, int, char*, char*, frac_t*);
-void freei(info_t*);
-int cmpi(info_t*, info_t*);
-void drawi(info_t*);
+static info_t newi(int, int, int, char*, char*, frac_t*);
+static void freei(info_t*);
+static int cmpi(info_t*, info_t*);
+static void drawi(info_t*);
 
 // global vars
 info_t** infos = 0; int ninfos = 0;
@@ -41,18 +41,18 @@ void infofreeall() {
 	infos = 0; ninfos = 0;}
 
 // local funcs
-info_t newi(int row, int col, int cols, char* clr, char* title, frac_t* value) {
+static info_t newi(int row, int col, int cols, char* clr, char* title, frac_t* value) {
 	char* odraw = malloc(cols + 1);
 	memset(odraw, '\0', cols + 1);
 
 	return (info_t){row, col, cols, clr, title, odraw, value, fracnew(0, 1)};}
 
-void freei(info_t* info) {
+static void freei(info_t* info) {
 	free(info->odraw);
 	free(info);
 	info = 0;}
 
-int cmpi(info_t* a, info_t* b) {
+static int cmpi(info_t* a, info_t* b) {
 	return !(a->row == b->row &&
 		a->col == b->col &&
 		a->cols == b->cols &&
@@ -60,7 +60,7 @@ int cmpi(info_t* a, info_t* b) {
 		strcmp(a->title, b->title) == 0 &&
 		a->value == b->value);}
 
-void drawi(info_t* info) {
+static void drawi(info_t* info) {
 	if (fraccmp(info->value, &info->ovalue) == 0 && *info->odraw != 0)
 		return;
 	info->ovalue = *info->value;

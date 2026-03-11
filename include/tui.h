@@ -10,7 +10,6 @@
 #define CMDINVALID -1
 #define CMDINVALIDARGV -2
 #define CMDINVALIDARGC -3
-#define CMDPREFIX '/'
 #define FRAMERATE 30
 
 // cursor
@@ -43,6 +42,9 @@ extern char* FORESUC;
 
 extern int doflush;
 extern int* isrunning;
+extern int width, height;
+
+extern void* (*tuiinit(int*))(void*);
 extern void* tui(void*);
 
 #endif

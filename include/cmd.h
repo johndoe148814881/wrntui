@@ -11,6 +11,9 @@ typedef struct {
 
 extern cmd_t** cmds; extern int ncmds;
 
+extern char cmdprefix;
+
+extern void cmdsetprefix(char);
 extern void cmdnew(char*, int (*)(int, char**));
 extern void cmdfreeall();
 extern int cmdexec(char*);

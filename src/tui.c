@@ -5,7 +5,6 @@
 #include <signal.h>
 #include <time.h>
 #include <termios.h>
-#include <pthread.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <string.h>
@@ -24,31 +23,35 @@ char* MOVECURS(int row, int col) {
 	return rstr;}
 int doflush = 1;
 int* isrunning = 0;
+int width; int height;
 
 // local vars
-int width; int height;
-struct termios oldtermattrs;
-int istyping = 0;
-char* cmdbuf = NULL;
-char* msgbuf = NULL;
-int cmdbuft;
+static struct termios oldtermattrs;
+static int istyping = 0;
+static char* cmdbuf = NULL;
+static char* msgbuf = NULL;
+static int cmdbuft;
 
 // local func defs
-void sigint(int);
-void parseargs(void*);
-void initin();
-int initout();
-void iterin();
-void iterout();
-void exitin();
-void exitout();
+static void sigint(int);
+static void parseargs(void*);
+static void initin();
+static int initout();
+static void iterin();
+static void iterout();
+static void exitin();
+static void exitout();
+static int q(int, char**);
 
 // global func tui thread
-void* tui(void* arg) {
-	parseargs(arg);
+void* (*tuiinit(int* isrunningp))(void*) {
+	isrunning = isrunningp;
 	initin();
 	*isrunning = !initout();
-	
+
+	return tui;}
+
+void* tui(void* arg) {
 	while (*isrunning) {
 		struct timespec tpre, tpost;
 		clock_gettime(CLOCK_MONOTONIC, &tpre);
@@ -69,16 +72,18 @@ void* tui(void* arg) {
 	return NULL;}
 
 // local funcs
-void sigint(int sig) {
+static void sigint(int sig) {
 	(void)sig;
 	*isrunning = 0;}
 
-void parseargs(void* args) {
-	isrunning = (int*)args;}
+static void parseargs(void* args) {
+	(void)args;}
 
-void initin() {
+static void initin() {
 	signal(SIGINT, sigint); // handle signal interrupt safely
-
+	
+	setvbuf(stdout, NULL, _IOFBF, 8192);  // disable printf automatically flushing to stdout
+	
 	struct termios newtermattrs; // disable echo and canonical mode
 	tcgetattr(STDIN_FILENO, &oldtermattrs);
 	newtermattrs = oldtermattrs;
@@ -86,9 +91,11 @@ void initin() {
 	tcsetattr(STDIN_FILENO, TCSANOW, &newtermattrs);
 	
 	int flags = fcntl(STDIN_FILENO, F_GETFL, 0); // disable stdin funcs yeilding
-	fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);}
+	fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 
-int initout() {
+	cmdnew("q", q);} // default commands
+
+static int initout() {
 	char* ct = getenv("COLORTERM"); // set forecolors to 24BIT versions if terminal supports 24BIT colors
 	char *term = getenv("TERM");
 	if (ct && term && strcmp(term, "linux") != 0 &&(strcmp(ct, "truecolor") == 0 || strcmp(ct, "24BIT") == 0)) {
@@ -119,7 +126,7 @@ int initout() {
 	
 	return 0;}
 
-void iterin() {
+static void iterin() {
 	int ch = getchar();
 		
 	if (istyping) { // cmdbuffer related input
@@ -129,12 +136,12 @@ void iterin() {
 		case '\n': { // if enter pressed, execute cmd
 			int ret = cmdexec(cmdbuf);
 			switch (ret) {
-			case 0: 
+			case CMDSUCCESS: 
 				snprintf(msgbuf, width, "%s%s%s%s", FORESUC, BOLD, cmdbuf, CLRATTRS);
 				break;
-			case 1: case 2: case 3: {
-				char* generalmsg = ret == 1 ? "invalid command" : 
-					(ret == 2 ? "invalid arg count" : 
+			case CMDINVALID: case CMDINVALIDARGC: case CMDINVALIDARGV: {
+				char* generalmsg = ret == CMDINVALID ? "invalid command" : 
+					(ret == CMDINVALIDARGC ? "invalid arg count" : 
 					 "invalid arg values");
 				snprintf(msgbuf, width, "%s%s%s: %s%s", FOREERR, BOLD, generalmsg, cmdbuf, CLRATTRS);
 				break;}}
@@ -155,18 +162,19 @@ void iterin() {
 	switch (ch) { // any other input
 	case EOF:
 		break;
-	case CMDPREFIX: // cmd prefix entered, allow typing in cmdbuffer
-		istyping = 1;
-		if ((int)strlen(cmdbuf) < width - 1)
-			cmdbuf[strlen(cmdbuf)] = ch;
-		break;
-	default: // binds 
-		for (int i = 0; i < nbinds; ++i)
+	default:
+		if (ch == cmdprefix) { // cmd prefix entered, allow typing in cmdbuffer
+			istyping = 1;
+			if ((int)strlen(cmdbuf) < width - 1)
+				cmdbuf[strlen(cmdbuf)] = ch;
+			break;}
+
+		for (int i = 0; i < nbinds; ++i) // binds 
 			if (ch == binds[i]->key) {
 				binds[i]->func();
 				break;}}}
 
-void iterout() {
+static void iterout() {
 	for (int i = 0; i < ninfos; ++i) // draw changed infos
 		infodraw(infos[i]->row, infos[i]->col, infos[i]->cols, infos[i]->clr, infos[i]->title, infos[i]->value);
 
@@ -186,10 +194,10 @@ void iterout() {
 		doflush = 0;
 		fflush(stdout);}}	
 
-void exitin() {
+static void exitin() {
 	tcsetattr(STDIN_FILENO, TCSANOW, &oldtermattrs);} // reenable echo and canonical mode
 
-void exitout() {
+static void exitout() {
 	free(cmdbuf);
 	free(msgbuf);
 	bindfreeall();
@@ -199,4 +207,12 @@ void exitout() {
 //	graphfreeall();
 
 	printf("%s%s%s%s%s", CLRATTRS, CLRBUF, REGBUF, LOADCURS, SHOWCURS);} // restore regular buffer
+
+static int q(int argc, char** argv) {
+	(void)argv;
+	if (argc != 1)
+		return CMDINVALIDARGC;
 	
+	*isrunning = 0;
+	return CMDSUCCESS;}
+

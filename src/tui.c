@@ -19,10 +19,16 @@ char* FORE5 = 0;
 char* FOREERR = 0;
 char* FORESUC = 0;
 char* MOVECURS(int row, int col) {
-	static char rstr[64];
-	memset(rstr, '\0', 64);
-	snprintf(rstr, 64, "\033[%d;%dH", row, col);	
-	return rstr;}
+	static char rstrs[64][16];
+	static int rstri;
+	
+	rstri++;
+	if (rstri > 15)
+		rstri = 0;
+
+	memset(rstrs[rstri], '\0', 64);
+	snprintf(rstrs[rstri], 64, "\033[%d;%dH", row, col);	
+	return rstrs[rstri];}
 int doflush = 1;
 int* isrunning = 0;
 int width; int height;

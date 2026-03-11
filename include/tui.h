@@ -29,6 +29,8 @@ extern char* MOVECURS(int, int);
 #define FORE124BIT "\033[38;2;72;120;140m"
 #define FORE224BIT "\033[38;2;130;105;155m"
 #define FORE324BIT "\033[38;2;180;140;80m"
+#define FORE424BIT "\033[38;2;90;150;120m"
+#define FORE524BIT "\033[38;2;160;100;110m" 
 #define FOREERR24BIT "\033[38;2;163;74;74m"
 #define FORESUC24BIT "\033[38;2;92;158;100m"
 #define FOREERR8BIT "\033[38;5;160m"
@@ -37,6 +39,8 @@ extern char* MOVECURS(int, int);
 extern char* FORE1;
 extern char* FORE2;
 extern char* FORE3;
+extern char* FORE4;
+extern char* FORE5;
 extern char* FOREERR;
 extern char* FORESUC;
 

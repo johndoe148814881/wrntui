@@ -14,6 +14,8 @@
 char* FORE1 = 0; 
 char* FORE2 = 0;
 char* FORE3 = 0;
+char* FORE4 = 0;
+char* FORE5 = 0;
 char* FOREERR = 0;
 char* FORESUC = 0;
 char* MOVECURS(int row, int col) {
@@ -102,6 +104,8 @@ static int initout() {
 		FORE1 = FORE124BIT;
 		FORE2 = FORE224BIT;
 		FORE3 = FORE324BIT;
+		FORE4 = FORE424BIT;
+		FORE5 = FORE524BIT;
 		FOREERR = FOREERR24BIT;
 		FORESUC = FORESUC24BIT;}
 	else {

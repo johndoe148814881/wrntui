@@ -28,7 +28,7 @@ void boxdraw(int row, int col, int rows, int cols, char* clr, char* title, int c
 	// title
 	int elementsize = strlen(title) + 4;
 	int offset = col + 1;
-	if (elementsize <= cols) 
+	if (offset + elementsize <= cols + col - 1) 
 		printf("%s┤ %s%s%s ├", MOVECURS(row, offset), CLRATTRS, title, clr);
 	offset += elementsize;
 	
@@ -36,7 +36,7 @@ void boxdraw(int row, int col, int rows, int cols, char* clr, char* title, int c
 	if (nopts > 0)
 		for (int i = 0; i < nopts; ++i) {
 			elementsize = strlen(opts[i]) + 4;
-			if (offset + elementsize <= cols)
+			if (offset + elementsize <= cols + col - 1)
 				printf("%s┤ %s%s%c%s%s%s%s%s ├", MOVECURS(row, offset), FOREERR, BOLD, *opts[i], CLRATTRS, BOLD, opts[i] + 1, CLRATTRS, clr);
 			offset += elementsize;}
 

@@ -1,3 +1,4 @@
+# author: codex #
 CC ?= cc
 AR ?= ar
 RANLIB ?= ranlib

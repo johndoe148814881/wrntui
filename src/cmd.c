@@ -35,6 +35,10 @@ int cmdexec(char* cmdbuf) {
 	int argc; char** argv;
 	newt(cmdbuf, &argc, &argv);
 
+	if (argc < 1 || !argv) {
+		freeta();
+		return 0;}
+
 	cmd_t* cmd = 0;
 	for (int i = 0; i < ncmds; ++i)
 		if (strcmp(cmds[i]->cmd, argv[0] + 1) == 0) {

@@ -18,15 +18,15 @@ void infodraw(int row, int col, int cols, char* clr, char* title, frac_t* value)
 	info_t info = newi(row, col, cols, clr, title, value);
 
 	// if arguments equal an existing info, use that one instead, else add a new entry to infos
-	int isnew = 0;
+	int exists = 0;
 	for (int i = 0; i < ninfos; ++i)
-		if ((isnew = cmpi(&info, infos[i]) == 0)) {
+		if ((exists = cmpi(&info, infos[i]) == 0)) {
 			info_t oinfo = info;
 			info = *infos[i];
 			free(oinfo.odraw);
 			break;}
 
-	if (isnew) {
+	if (!exists) {
 		infos = realloc(infos, ++ninfos * sizeof(info_t*));
 		infos[ninfos - 1] = malloc(sizeof(info_t));
 		*infos[ninfos - 1] = info;}

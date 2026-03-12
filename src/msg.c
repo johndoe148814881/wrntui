@@ -18,15 +18,15 @@ void msgdraw(int row, int col, int cols, char* buf) {
 	msg_t msg = newm(row, col, cols, buf);
 
 	// if arguments equal an existing msg, use that one instead, else add a new entry to msgs
-	int isnew = 0;
+	int exists = 0;
 	for (int i = 0; i < nmsgs; ++i)
-		if ((isnew = cmpm(&msg, msgs[i]) == 0)) {
+		if ((exists = cmpm(&msg, msgs[i]) == 0)) {
 			msg_t omsg = msg;
 			msg = *msgs[i];
 			free(omsg.odraw);
 			break;}
 
-	if (isnew) {
+	if (!exists) {
 		msgs = realloc(msgs, ++nmsgs * sizeof(msg_t*));
 		msgs[nmsgs - 1] = malloc(sizeof(msg_t));
 		*msgs[nmsgs - 1] = msg;}

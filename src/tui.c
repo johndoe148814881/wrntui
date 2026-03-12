@@ -199,15 +199,19 @@ static void iterout() {
 
 	msgdraw(height - 1, 1, width, msgbuf); // draw cmd and msg bufs
 	msgdraw(height, 1, width, cmdbuf);
-
+	
+	int printunderscore = 0;
 	if (istyping && clock() - cmdbuft > CLOCKS_PER_SEC / 4) { // draw underscore at end of cmdbuffer
 		cmdbuft = clock();
 		char endchar = cmdbuft % (CLOCKS_PER_SEC / 2) > CLOCKS_PER_SEC / 4 ? '_' : ' ';
-		printf("%s%c%s", MOVECURS(height, strlen(cmdbuf) + 1), endchar, CLRTOEOL);
-		doflush = 1;}
 
-	if (doflush) { // flush stdout if needed
 		pthread_mutex_lock(&flushmutex);
+		printf("%s%c%s", MOVECURS(height, strlen(cmdbuf) + 1), endchar, CLRTOEOL);
+		doflush = 1;
+		pthread_mutex_unlock(&flushmutex);}
+
+	pthread_mutex_lock(&flushmutex);
+	if (doflush) { // flush stdout if needed
 		doflush = 0;
 		fflush(stdout);
 		pthread_mutex_unlock(&flushmutex);}}	

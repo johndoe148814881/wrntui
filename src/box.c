@@ -4,6 +4,8 @@
 #include <string.h>
 
 void boxdraw(int row, int col, int rows, int cols, char* clr, char* title, int clear, int nopts, char** opts) {
+	pthread_mutex_lock(&flushmutex);
+
 	// clear area
 	if (clear)
 		for (int i = 0; i < rows - 2; ++i) {
@@ -41,6 +43,7 @@ void boxdraw(int row, int col, int rows, int cols, char* clr, char* title, int c
 			offset += elementsize;}
 
 	printf("%s", CLRATTRS);
-	doflush = 1;}
+	doflush = 1;
+	pthread_mutex_unlock(&flushmutex);}
 
 

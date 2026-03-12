@@ -6,6 +6,7 @@
 #include "graph.h"
 #include "info.h"
 #include "msg.h"
+#include <pthread.h>
 #define CMDSUCCESS 0
 #define CMDINVALID -1
 #define CMDINVALIDARGV -2
@@ -46,6 +47,7 @@ extern char* FOREERR;
 extern char* FORESUC;
 
 extern int doflush;
+extern pthread_mutex_t flushmutex;
 extern int* isrunning;
 extern int width, height;
 

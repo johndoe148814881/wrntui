@@ -67,6 +67,8 @@ static void drawm(msg_t* msg) {
 	if (strcmp(draw, msg->odraw) == 0 && *msg->odraw != 0)
 		return;
 	strcpy(msg->odraw, draw);
-
+	
+	pthread_mutex_lock(&flushmutex);
 	printf("%s%s", MOVECURS(msg->row, msg->col), msg->odraw);
-	doflush = 1;}
+	doflush = 1;
+	pthread_mutex_unlock(&flushmutex);}

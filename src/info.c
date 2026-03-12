@@ -71,6 +71,7 @@ static void drawi(info_t* info) {
 
 	memset(info->odraw + len, ' ', info->cols - 1 - len);
 	
+	pthread_mutex_lock(&flushmutex);
 	printf("%s%.*s%s%s%s%s", 
 			MOVECURS(info->row, info->col), 
 			(int)strlen(info->title) + 2, info->odraw, 
@@ -78,4 +79,5 @@ static void drawi(info_t* info) {
 			BOLD, 
 			info->odraw + strlen(info->title) + 2, 
 			CLRATTRS);
-	doflush = 1;}
+	doflush = 1;
+	pthread_mutex_unlock(&flushmutex);}

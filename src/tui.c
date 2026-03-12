@@ -30,6 +30,7 @@ char* MOVECURS(int row, int col) {
 	snprintf(rstrs[rstri], 64, "\033[%d;%dH", row, col);	
 	return rstrs[rstri];}
 int doflush = 1;
+pthread_mutex_t flushmutex = PTHREAD_MUTEX_INITIALIZER;
 int* isrunning = 0;
 int width; int height;
 
@@ -206,8 +207,10 @@ static void iterout() {
 		doflush = 1;}
 
 	if (doflush) { // flush stdout if needed
+		pthread_mutex_lock(&flushmutex);
 		doflush = 0;
-		fflush(stdout);}}	
+		fflush(stdout);
+		pthread_mutex_unlock(&flushmutex);}}	
 
 static void exitin() {
 	tcsetattr(STDIN_FILENO, TCSANOW, &oldtermattrs);} // reenable echo and canonical mode
@@ -221,7 +224,8 @@ static void exitout() {
 	cmdfreeall();
 //	graphfreeall();
 
-	printf("%s%s%s%s%s", CLRATTRS, CLRBUF, REGBUF, LOADCURS, SHOWCURS);} // restore regular buffer
+	printf("%s%s%s%s%s", CLRATTRS, CLRBUF, REGBUF, LOADCURS, SHOWCURS); // restore regular buffer
+	fflush(stdout);}
 
 static int q(int argc, char** argv) {
 	(void)argv;

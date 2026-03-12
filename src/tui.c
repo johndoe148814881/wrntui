@@ -129,7 +129,10 @@ static int initout() {
 		return 1;
 	height = w.ws_row; width = w.ws_col;
 
+	pthread_mutex_lock(&flushmutex);
 	printf("%s%s%s%s%s", SAVECURS, HIDECURS, ALTBUF, CLRBUF, CLRATTRS); // enter alt buffer
+	doflush = 1;
+	pthread_mutex_unlock(&flushmutex);
 
 	cmdbuf = malloc(width); // allocate memory for buffers
 	msgbuf = malloc(width);
@@ -226,9 +229,11 @@ static void exitout() {
 	infofreeall();
 	cmdfreeall();
 //	graphfreeall();
-
+	
+	pthread_mutex_lock(&flushmutex);
 	printf("%s%s%s%s%s", CLRATTRS, CLRBUF, REGBUF, LOADCURS, SHOWCURS); // restore regular buffer
-	fflush(stdout);}
+	fflush(stdout);
+	pthread_mutex_unlock(&flushmutex);}
 
 static int q(int argc, char** argv) {
 	(void)argv;

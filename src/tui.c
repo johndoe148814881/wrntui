@@ -19,7 +19,7 @@ char* FORE5 = 0;
 char* FOREERR = 0;
 char* FORESUC = 0;
 char* MOVECURS(int row, int col) {
-	static char rstrs[64][16];
+	static char rstrs[16][64];
 	static int rstri;
 	
 	rstri++;

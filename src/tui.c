@@ -200,7 +200,6 @@ static void iterout() {
 	msgdraw(height - 1, 1, width, msgbuf); // draw cmd and msg bufs
 	msgdraw(height, 1, width, cmdbuf);
 	
-	int printunderscore = 0;
 	if (istyping && clock() - cmdbuft > CLOCKS_PER_SEC / 4) { // draw underscore at end of cmdbuffer
 		cmdbuft = clock();
 		char endchar = cmdbuft % (CLOCKS_PER_SEC / 2) > CLOCKS_PER_SEC / 4 ? '_' : ' ';
@@ -210,11 +209,11 @@ static void iterout() {
 		doflush = 1;
 		pthread_mutex_unlock(&flushmutex);}
 
-	pthread_mutex_lock(&flushmutex);
-	if (doflush) { // flush stdout if needed
+	pthread_mutex_lock(&flushmutex); // flush stdout if needed
+	if (doflush) {
 		doflush = 0;
-		fflush(stdout);
-		pthread_mutex_unlock(&flushmutex);}}	
+		fflush(stdout);}
+	pthread_mutex_unlock(&flushmutex);}
 
 static void exitin() {
 	tcsetattr(STDIN_FILENO, TCSANOW, &oldtermattrs);} // reenable echo and canonical mode

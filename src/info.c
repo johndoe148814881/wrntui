@@ -15,6 +15,7 @@ info_t** infos = 0; int ninfos = 0;
 
 // global funcs
 void infodraw(int row, int col, int cols, char* clr, char* title, frac_t* value) {
+	pthread_mutex_lock(&flushmutex);
 	info_t info = newi(row, col, cols, clr, title, value);
 
 	// if arguments equal an existing info, use that one instead, else add a new entry to infos
@@ -31,14 +32,17 @@ void infodraw(int row, int col, int cols, char* clr, char* title, frac_t* value)
 		infos[ninfos - 1] = malloc(sizeof(info_t));
 		*infos[ninfos - 1] = info;}
 
-	drawi(&info);}
+	drawi(&info);
+	pthread_mutex_unlock(&flushmutex);}
 
 void infofreeall() {
+	pthread_mutex_lock(&flushmutex);
 	for (int i = 0; i < ninfos; ++i)
 		freei(infos[i]);
 
 	free(infos);
-	infos = 0; ninfos = 0;}
+	infos = 0; ninfos = 0;
+	pthread_mutex_unlock(&flushmutex);}
 
 // local funcs
 static info_t newi(int row, int col, int cols, char* clr, char* title, frac_t* value) {
@@ -71,7 +75,6 @@ static void drawi(info_t* info) {
 
 	memset(info->odraw + len, ' ', info->cols - 1 - len);
 	
-	pthread_mutex_lock(&flushmutex);
 	printf("%s%.*s%s%s%s%s", 
 			MOVECURS(info->row, info->col), 
 			(int)strlen(info->title) + 2, info->odraw, 
@@ -79,5 +82,5 @@ static void drawi(info_t* info) {
 			BOLD, 
 			info->odraw + strlen(info->title) + 2, 
 			CLRATTRS);
-	doflush = 1;
-	pthread_mutex_unlock(&flushmutex);}
+	doflush = 1;}
+

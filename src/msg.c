@@ -15,6 +15,7 @@ msg_t** msgs = 0; int nmsgs = 0;
 
 // global funcs
 void msgdraw(int row, int col, int cols, char* buf) {
+	pthread_mutex_lock(&flushmutex);
 	msg_t msg = newm(row, col, cols, buf);
 
 	// if arguments equal an existing msg, use that one instead, else add a new entry to msgs
@@ -31,14 +32,17 @@ void msgdraw(int row, int col, int cols, char* buf) {
 		msgs[nmsgs - 1] = malloc(sizeof(msg_t));
 		*msgs[nmsgs - 1] = msg;}
 
-	drawm(&msg);}
+	drawm(&msg);
+	pthread_mutex_unlock(&flushmutex);}
 
 void msgfreeall() {
+	pthread_mutex_lock(&flushmutex);
 	for (int i = 0; i < nmsgs; ++i)
 		freem(msgs[i]);
 
 	free(msgs);
-	msgs = 0; nmsgs = 0;}
+	msgs = 0; nmsgs = 0;
+	pthread_mutex_unlock(&flushmutex);}
 
 // local funcs
 static msg_t newm(int row, int col, int cols, char* buf) {
@@ -68,7 +72,5 @@ static void drawm(msg_t* msg) {
 		return;
 	strcpy(msg->odraw, draw);
 	
-	pthread_mutex_lock(&flushmutex);
 	printf("%s%s", MOVECURS(msg->row, msg->col), msg->odraw);
-	doflush = 1;
-	pthread_mutex_unlock(&flushmutex);}
+	doflush = 1;}

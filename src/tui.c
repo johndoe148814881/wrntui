@@ -39,6 +39,7 @@ static struct termios oldtermattrs;
 static int istyping = 0;
 static char* cmdbuf = NULL;
 static char* msgbuf = NULL;
+static int msgbufcap = 0;
 static int cmdbuft;
 
 // local func defs
@@ -135,13 +136,16 @@ static int initout() {
 	pthread_mutex_unlock(&flushmutex);
 
 	cmdbuf = malloc(width); // allocate memory for buffers
-	msgbuf = malloc(width);
+	msgbufcap = width * 4;
+	if (msgbufcap < 256)
+		msgbufcap = 256;
+	msgbuf = malloc(msgbufcap);
 
 	cmdbuft = clock();
 //	graphst = clock();
 	
 	memset(cmdbuf, 0, width);
-	memset(msgbuf, 0, width);
+	memset(msgbuf, 0, msgbufcap);
 	
 	return 0;}
 
@@ -156,13 +160,13 @@ static void iterin() {
 			int ret = cmdexec(cmdbuf);
 			switch (ret) {
 			case CMDSUCCESS: 
-				snprintf(msgbuf, width, "%s%s%s%s", FORESUC, BOLD, cmdbuf, CLRATTRS);
+				snprintf(msgbuf, msgbufcap, "%s%s%s%s", FORESUC, BOLD, cmdbuf, CLRATTRS);
 				break;
 			case CMDINVALID: case CMDINVALIDARGC: case CMDINVALIDARGV: {
 				char* generalmsg = ret == CMDINVALID ? "invalid command" : 
 					(ret == CMDINVALIDARGC ? "invalid arg count" : 
 					 "invalid arg values");
-				snprintf(msgbuf, width, "%s%s%s: %s%s", FOREERR, BOLD, generalmsg, cmdbuf, CLRATTRS);
+				snprintf(msgbuf, msgbufcap, "%s%s%s: %s%s", FOREERR, BOLD, generalmsg, cmdbuf, CLRATTRS);
 				break;}}
 
 			istyping = 0;

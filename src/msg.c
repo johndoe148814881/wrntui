@@ -46,10 +46,11 @@ void msgfreeall() {
 
 // local funcs
 static msg_t newm(int row, int col, int cols, char* buf) {
-	char* odraw = malloc(cols + 1);
-	memset(odraw, '\0', cols + 1);
+	size_t odrawcap = (size_t)cols * 8 + 1;
+	char* odraw = malloc(odrawcap);
+	memset(odraw, '\0', odrawcap);
 
-	return (msg_t){row, col, cols, buf, odraw};}
+	return (msg_t){row, col, cols, buf, odraw, odrawcap};}
 
 static void freem(msg_t* msg) {
 	free(msg->odraw);
@@ -63,14 +64,9 @@ static int cmpm(msg_t* a, msg_t* b) {
 		a->buf == b->buf);}
 
 static void drawm(msg_t* msg) {
-	char draw[msg->cols + 1];
-	strcpy(draw, msg->buf);
-	memset(draw + strlen(msg->buf), ' ', msg->cols - strlen(msg->buf));
-	draw[msg->cols] = '\0';
-
-	if (strcmp(draw, msg->odraw) == 0 && *msg->odraw != 0)
+	if (strcmp(msg->buf, msg->odraw) == 0 && *msg->odraw != 0)
 		return;
-	strcpy(msg->odraw, draw);
-	
-	printf("%s%s", MOVECURS(msg->row, msg->col), msg->odraw);
+
+	snprintf(msg->odraw, msg->odrawcap, "%s", msg->buf);
+	printf("%s%s%s", MOVECURS(msg->row, msg->col), msg->odraw, CLRTOEOL);
 	doflush = 1;}

@@ -7,7 +7,7 @@ typedef struct {
 	void (*func)(void);} bind_t;
 
 // local func defs
-static bind_t* newbind(int, void (*)(void));
+static void newbind(int, void (*)(void));
 static void delbind(bind_t*);
 
 // local vars
@@ -15,7 +15,7 @@ bind_t** bindv = 0; int bindc = 0;
 
 // global funcs
 void bindnew(int key, void (*func)(void)) {
-	(void)newbind(key, func);}
+	newbind(key, func);}
 
 void bindexecute(int key) {
 	for (int i = 0; i < bindc; ++i)
@@ -27,21 +27,19 @@ void bindfreeall() {
 		delbind(bindv[0]);}
 
 // local funcs
-static bind_t* newbind(int key, void (*func)(void)) {
+static void newbind(int key, void (*func)(void)) {
 	bind_t* bind = malloc(sizeof(bind_t));
 	if (!bind) {
 		abort();
-		return 0;}
+		return;}
 	bind->key = key;
 	bind->func = func;
 
 	bindv = realloc(bindv, ++bindc * sizeof(bind_t*));
 	if (!bindv) {
 		abort();
-		return 0;}
-	bindv[bindc - 1] = bind; 
-
-	return bind;}
+		return;}
+	bindv[bindc - 1] = bind;}
 
 static void delbind(bind_t* bind) {
 	int bindi = -1;

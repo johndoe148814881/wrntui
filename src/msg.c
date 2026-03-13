@@ -16,54 +16,46 @@ typedef struct {
 static msg_t** msgv = 0; static int msgc = 0;
 
 // local func defs
-static msg_t* newmsg(int, int, int, char*);
+static void newmsg(int, int, int, char*);
 static void delmsg(msg_t*);
 static int cmpmsg(msg_t*, msg_t*);
-static msg_t* getexistingmsg(msg_t*);
+static msg_t* getexistingmsg(int, int, int, char*);
 static int updatemsg(msg_t*);
 static void drawmsg(msg_t*);
 
 // global funcs
 void msgnew(int row, int col, int cols, char* buf) {
-	pthread_mutex_lock(&tuiflushmutex);
-	
-	msg_t* msg = newmsg(row, col, cols, buf);
-
-	msg_t* duplicate = getexistingmsg(msg);
-	if (duplicate)
-		delmsg(msg);
-
-	pthread_mutex_unlock(&tuiflushmutex);}
+	msg_t* duplicate = getexistingmsg(row, col, cols, buf);
+	if (!duplicate) {
+		pthread_mutex_lock(&tuiflushmutex);
+		newmsg(row, col, cols, buf);
+		pthread_mutex_unlock(&tuiflushmutex);}}
 
 void msgdrawall() {
 	pthread_mutex_lock(&tuiflushmutex);
-
 	for (int i = 0; i < msgc; ++i)
 		if (!updatemsg(msgv[i]))
 			drawmsg(msgv[i]);
-
 	pthread_mutex_unlock(&tuiflushmutex);}
 
 void msgfreeall() {
 	pthread_mutex_lock(&tuiflushmutex);
-
 	for (; msgc > 0;)
 		delmsg(msgv[0]);
-
 	pthread_mutex_unlock(&tuiflushmutex);}
 
 // local funcs
-static msg_t* newmsg(int row, int col, int cols, char* buf) {
+static void newmsg(int row, int col, int cols, char* buf) {
 	char* odraw = malloc(cols + 1);
 	if (!odraw) {
 		abort();
-		return 0;}
+		return;}
 	memset(odraw, '\0', cols + 1);
 	
 	msg_t* msg = malloc(sizeof(msg_t));
 	if (!msg) {
 		abort();
-		return 0;}
+		return;}
 	msg->row = row;
 	msg->col = col;
 	msg->cols = cols;
@@ -73,10 +65,8 @@ static msg_t* newmsg(int row, int col, int cols, char* buf) {
 	msgv = realloc(msgv, ++msgc * sizeof(msg_t*));
 	if (!msgv) {
 		abort();
-		return 0;}
-	msgv[msgc - 1] = msg;
-
-	return msg;}
+		return;}
+	msgv[msgc - 1] = msg;}
 
 static void delmsg(msg_t* msg) {
 	int msgi = -1;
@@ -102,9 +92,11 @@ static int cmpmsg(msg_t* a, msg_t* b) {
 		a->cols == b->cols &&
 		a->buf == b->buf);}
 
-static msg_t* getexistingmsg(msg_t* msg) {
+static msg_t* getexistingmsg(int row, int col, int cols, char* buf) {
+	msg_t msg = (msg_t){row, col, cols, buf, 0};
+
 	for (int i = 0; i < msgc; ++i)
-		if (cmpmsg(msg, msgv[i]) == 0)
+		if (cmpmsg(&msg, msgv[i]) == 0)
 			return msgv[i];
 
 	return 0;}

@@ -20,48 +20,40 @@ typedef struct {
 static info_t** infov = 0; static int infoc = 0;
 
 // local func defs
-static info_t* newinfo(int, int, int, char*, char*, void*, int);
+static void newinfo(int, int, int, char*, char*, void*, int);
 static void delinfo(info_t*);
 static int cmpinfo(info_t*, info_t*);
-static info_t* getexistinginfo(info_t*);
+static info_t* getexistinginfo(int, int, int, char*, char*, void*, int);
 static int updateinfo(info_t*);
 static void drawinfo(info_t*);
 
 // global funcs
 void infonew(int row, int col, int cols, char* clr, char* name, void* value, int type) {
-	pthread_mutex_lock(&tuiflushmutex);
-
-	info_t* info = newinfo(row, col, cols, clr, name, value, type);
-	
-	info_t* duplicate = getexistinginfo(info);
-	if (duplicate)
-		delinfo(info);
-
-	pthread_mutex_unlock(&tuiflushmutex);}
+	info_t* duplicate = getexistinginfo(row, col, cols, clr, name, value, type);
+	if (duplicate) {
+		pthread_mutex_lock(&tuiflushmutex);
+		newinfo(row, col, cols, clr, name, value, type);
+		pthread_mutex_unlock(&tuiflushmutex);}}
 
 void infodrawall() {
 	pthread_mutex_lock(&tuiflushmutex);
-	
 	for (int i = 0; i < infoc; ++i)
 		if (!updateinfo(infov[i]))
 			drawinfo(infov[i]);
-
 	pthread_mutex_unlock(&tuiflushmutex);}
 
 void infofreeall() {
 	pthread_mutex_lock(&tuiflushmutex);
-	
 	for (; infoc > 0;)
 		delinfo(infov[0]);
-
 	pthread_mutex_unlock(&tuiflushmutex);}
 
 // local funcs
-static info_t* newinfo(int row, int col, int cols, char* clr, char* name, void* value, int type) {
+static void newinfo(int row, int col, int cols, char* clr, char* name, void* value, int type) {
 	char* odraw = malloc(cols + 1);
 	if (!odraw) {
 		abort();
-		return 0;}
+		return;}
 	memset(odraw, '\0', cols + 1);
 	
 	void* ovalue;
@@ -70,7 +62,7 @@ static info_t* newinfo(int row, int col, int cols, char* clr, char* name, void* 
 		int* ointvalue = malloc(sizeof(int));
 		if (!ointvalue) {
 			abort();
-			return 0;}
+			return;}
 		*ointvalue = 0;
 		ovalue = (void*)ointvalue;
 		break;}
@@ -78,18 +70,18 @@ static info_t* newinfo(int row, int col, int cols, char* clr, char* name, void* 
 		frac_t* ofracvalue = malloc(sizeof(frac_t));
 		if (!ofracvalue) {
 			abort();
-			return 0;}
+			return;}
 		*ofracvalue = fracnew(0, 1);
 		ovalue = (void*)ofracvalue;
 		break;}
 	default:
 		abort();
-		return 0;}
+		return;}
 
 	info_t* info = malloc(sizeof(info_t));
 	if (!info) {
 		abort();
-		return 0;}
+		return;}
 	info->row = row;
 	info->col = col;
 	info->cols = cols;
@@ -103,10 +95,8 @@ static info_t* newinfo(int row, int col, int cols, char* clr, char* name, void* 
 	infov = realloc(infov, ++infoc * sizeof(info_t*));
 	if (!infov) {
 		abort();
-		return 0;}
-	infov[infoc - 1] = info;
-
-	return info;} 
+		return;}
+	infov[infoc - 1] = info;} 
 
 static void delinfo(info_t* info) {
 	int infoi = -1;
@@ -133,13 +123,14 @@ static int cmpinfo(info_t* a, info_t* b) {
 		a->cols == b->cols &&
 		strcmp(a->clr, b->clr) == 0 &&
 		strcmp(a->name, b->name) == 0 &&
-		a->value == b->value);}
+		a->value == b->value &&
+		a->type == b->type);}
 
-static info_t* getexistinginfo(info_t* info) {
+static info_t* getexistinginfo(int row, int col, int cols, char* clr, char* name, void* value, int type) {
+	info_t info = (info_t){row, col, cols, type, clr, name, 0, value, 0};
 	for (int i = 0; i < infoc; ++i)
-		if (cmpinfo(info, infov[i]) == 0)
+		if (cmpinfo(&info, infov[i]) == 0)
 			return infov[i];
-
 	return 0;}
 
 static int updateinfo(info_t* info) {

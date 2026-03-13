@@ -9,21 +9,21 @@ typedef struct {
 	char* cmd;
 	int (*func)(int, char**);} cmd_t;
 
-// local func defs
-static cmd_t* newcmd(char*, int (*)(int, char**));
-static void delcmd(cmd_t*);
-static void alloctokens(char*, int*, char***);
-static void freetokens(int, char**);
-
 // global vars
 int cmdprefix = ':';
 
 // local vars
 static cmd_t** cmdv = 0; static int cmdc = 0;
 
+// local func defs
+static void newcmd(char*, int (*)(int, char**));
+static void delcmd(cmd_t*);
+static void alloctokens(char*, int*, char***);
+static void freetokens(int, char**);
+
 // global funcs
 void cmdnew(char* cmd, int (*func)(int, char**)) {
-	(void)newcmd(cmd, func);}
+	newcmd(cmd, func);}
 
 void cmdfreeall() {
 	for (; cmdc > 0;)
@@ -52,28 +52,26 @@ int cmdexecute(char* cmdbuf) {
 	return ret;}
 
 // local funcs
-static cmd_t* newcmd(char* cmdstr, int (*func)(int, char**)) {
+static void newcmd(char* cmdstr, int (*func)(int, char**)) {
 	char* heapcmdstr = malloc(strlen(cmdstr) + 1);
 	if (!heapcmdstr) {
 		abort();
-		return 0;}
+		return;}
 	strcpy(heapcmdstr, cmdstr);
 
 	cmd_t* cmd = malloc(sizeof(cmd_t));
 	if (!cmd) {
 		abort();
-		return 0;}
+		return;}
 	cmd->cmd = heapcmdstr;
 	cmd->func = func;
 
 	cmdv = realloc(cmdv, ++cmdc * sizeof(cmd_t*));
 	if (!cmdv) {
 		abort();
-		return 0;}
-	cmdv[cmdc - 1] = cmd;
+		return;}
+	cmdv[cmdc - 1] = cmd;}
 	
-	return cmd;}
-
 static void delcmd(cmd_t* cmd) {
 	int cmdi = -1;
 	for (int i = 0; i < cmdc; ++i) { 

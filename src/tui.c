@@ -34,8 +34,9 @@ int tuiframerate = 30;
 static struct termios oldtermattrs;
 static int istyping = 0;
 static char* cmdbuf = 0;
+static char* cmdbufvis = 0;
 static char* msgbuf = 0;
-static int cmdbuft;
+static int cmdbufvist;
 static char exitmsg[128] = {0};
 
 // local func defs
@@ -136,14 +137,16 @@ static int initout() {
 	printf("%s%s%s%s%s", SAVECURS, HIDECURS, ALTBUF, CLRBUF, CLRATTRS); // enter alt buffer
 
 	cmdbuf = malloc(tuiwidth); // allocate memory for buffers
+	cmdbufvis = malloc(tuiwidth);
 	msgbuf = malloc(tuiwidth);
 	memset(cmdbuf, 0, tuiwidth);
+	memset(cmdbufvis, 0, tuiwidth);
 	memset(msgbuf, 0, tuiwidth);
 	
-	cmdbuft = clock();
+	cmdbufvist = clock();
 	
 	msgnew(tuiheight - 1, 1, tuiwidth, msgbuf); // draw cmd and msg bufs
-	msgnew(tuiheight, 1, tuiwidth, cmdbuf);
+	msgnew(tuiheight, 1, tuiwidth, cmdbufvis);
 	
 	return 0;}
 
@@ -191,16 +194,15 @@ static void iterin() {
 			break;}}
 
 static void iterout() {
+	if (istyping && clock() - cmdbufvist > CLOCKS_PER_SEC / 4) { // draw underscore at end of cmdbuffer
+		cmdbufvist = clock();
+		char endchar = cmdbufvist % (CLOCKS_PER_SEC / 2) > CLOCKS_PER_SEC / 4 ? '_' : ' ';
+		snprintf(cmdbufvis, strlen(cmdbuf) + 1, "%s%c", cmdbuf, endchar);}
+	else if (!istyping && !*cmdbufvis)
+		memset(cmdbufvis, 0, strlen(cmdbufvis));
+
 	infodrawall();	
 	msgdrawall();
-	
-	if (istyping && clock() - cmdbuft > CLOCKS_PER_SEC / 4) { // draw underscore at end of cmdbuffer
-		cmdbuft = clock();
-		char endchar = cmdbuft % (CLOCKS_PER_SEC / 2) > CLOCKS_PER_SEC / 4 ? '_' : ' ';
-
-		pthread_mutex_lock(&tuiflushmutex);
-		printf("%s%c%s", MOVECURS(tuiheight, strlen(cmdbuf) + 1), endchar, CLRTOEOL);
-		pthread_mutex_unlock(&tuiflushmutex);}
 	
 	pthread_mutex_lock(&tuiflushmutex);
 	fflush(stdout);

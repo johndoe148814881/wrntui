@@ -111,8 +111,9 @@ static msg_t* getexistingmsg(msg_t* msg) {
 
 static int updatemsg(msg_t* msg) {
 	char draw[msg->cols + 1];
-	strncpy(draw, msg->buf, msg->cols);
-	memset(draw + strlen(msg->buf), ' ', msg->cols - strlen(msg->buf));
+	int len = (int)strnlen(msg->buf, msg->cols);
+	memcpy(draw, msg->buf, len);
+	memset(draw + len, ' ', msg->cols - len);
 	draw[msg->cols] = '\0';
 
 	if (strcmp(draw, msg->odraw) != 0 || *msg->odraw == 0) {

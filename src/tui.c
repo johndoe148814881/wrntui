@@ -28,7 +28,7 @@ char* MOVECURS(int row, int col) {
 pthread_mutex_t tuiflushmutex = PTHREAD_MUTEX_INITIALIZER;
 int* tuirunning = 0;
 int tuiwidth; int tuiheight;
-int tuiframerate = 10;
+int tuiframerate = 30;
 
 // local vars
 static struct termios oldtermattrs;
@@ -204,7 +204,7 @@ static void iterout() {
 	
 	pthread_mutex_lock(&tuiflushmutex);
 	fflush(stdout);
-	pthread_mutex_lock(&tuiflushmutex);}
+	pthread_mutex_unlock(&tuiflushmutex);}
 
 static void exitin() {
 	tcsetattr(STDIN_FILENO, TCSANOW, &oldtermattrs);} // reenable echo and canonical mode

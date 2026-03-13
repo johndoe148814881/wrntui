@@ -11,7 +11,7 @@
 #define CMDINVALID -1
 #define CMDINVALIDARGV -2
 #define CMDINVALIDARGC -3
-#define FRAMERATE 30
+#define TUIFOREC 5
 
 // cursor
 #define HIDECURS "\033[?25l"
@@ -38,20 +38,19 @@ extern char* MOVECURS(int, int);
 #define FOREERRTTY "\033[31m"
 #define FORESUCTTY "\033[32m" 
 // variable attributes influenced by terminal context
-extern char* FORE1;
-extern char* FORE2;
-extern char* FORE3;
-extern char* FORE4;
-extern char* FORE5;
-extern char* FOREERR;
-extern char* FORESUC;
+extern char* tuiforev[TUIFOREC];
+extern char* tuiforeerr;
+extern char* tuiforesuc;
 
-extern int doflush;
-extern pthread_mutex_t flushmutex;
-extern int* isrunning;
-extern int width, height;
+// global vars
+extern pthread_mutex_t tuiflushmutex;
+extern int* tuirunning;
+extern int tuiwidth, tuiheight;
+extern int tuiframerate;
 
+// global funcs
 extern void* (*tuiinit(int*))(void*);
+extern void tuisetframerate(int);
 extern void* tui(void*);
 
 #endif

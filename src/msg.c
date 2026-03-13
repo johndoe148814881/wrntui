@@ -4,73 +4,122 @@
 #include <stdio.h>
 #include <string.h>
 
-// local func defs
-static msg_t newm(int, int, int, char*);
-static void freem(msg_t*);
-static int cmpm(msg_t*, msg_t*);
-static void drawm(msg_t*);
+// local type defs
+typedef struct {
+	int row;
+	int col;
+	int cols;
+	char* buf;
+	char* odraw;} msg_t;
 
 // local vars
-msg_t** msgs = 0; int nmsgs = 0;
+static msg_t** msgv = 0; static int msgc = 0;
+
+// local func defs
+static msg_t* newmsg(int, int, int, char*);
+static void delmsg(msg_t*);
+static int cmpmsg(msg_t*, msg_t*);
+static msg_t* getexistingmsg(msg_t*);
+static int updatemsg(msg_t*);
+static void drawmsg(msg_t*);
 
 // global funcs
-void msgdraw(int row, int col, int cols, char* buf) {
-	pthread_mutex_lock(&flushmutex);
-	msg_t msg = newm(row, col, cols, buf);
+void msgnew(int row, int col, int cols, char* buf) {
+	pthread_mutex_lock(&tuiflushmutex);
+	
+	msg_t* msg = newmsg(row, col, cols, buf);
 
-	// if arguments equal an existing msg, use that one instead, else add a new entry to msgs
-	int exists = 0;
-	for (int i = 0; i < nmsgs; ++i)
-		if ((exists = cmpm(&msg, msgs[i]) == 0)) {
-			msg_t omsg = msg;
-			msg = *msgs[i];
-			free(omsg.odraw);
-			break;}
+	msg_t* duplicate = getexistingmsg(msg);
+	if (duplicate)
+		delmsg(msg);
 
-	if (!exists) {
-		msgs = realloc(msgs, ++nmsgs * sizeof(msg_t*));
-		msgs[nmsgs - 1] = malloc(sizeof(msg_t));
-		*msgs[nmsgs - 1] = msg;}
+	pthread_mutex_unlock(&tuiflushmutex);}
 
-	drawm(&msg);
-	pthread_mutex_unlock(&flushmutex);}
+void msgdrawall() {
+	pthread_mutex_lock(&tuiflushmutex);
+
+	for (int i = 0; i < msgc; ++i)
+		if (!updatemsg(msgv[i]))
+			drawmsg(msgv[i]);
+
+	pthread_mutex_unlock(&tuiflushmutex);}
 
 void msgfreeall() {
-	pthread_mutex_lock(&flushmutex);
-	for (int i = 0; i < nmsgs; ++i)
-		freem(msgs[i]);
+	pthread_mutex_lock(&tuiflushmutex);
 
-	free(msgs);
-	msgs = 0; nmsgs = 0;
-	pthread_mutex_unlock(&flushmutex);}
+	for (; msgc > 0;)
+		delmsg(msgv[0]);
+
+	pthread_mutex_unlock(&tuiflushmutex);}
 
 // local funcs
-static msg_t newm(int row, int col, int cols, char* buf) {
+static msg_t* newmsg(int row, int col, int cols, char* buf) {
 	char* odraw = malloc(cols + 1);
+	if (!odraw) {
+		abort();
+		return 0;}
 	memset(odraw, '\0', cols + 1);
+	
+	msg_t* msg = malloc(sizeof(msg_t));
+	if (!msg) {
+		abort();
+		return 0;}
+	msg->row = row;
+	msg->col = col;
+	msg->cols = cols;
+	msg->buf = buf;
+	msg->odraw = odraw;
 
-	return (msg_t){row, col, cols, buf, odraw};}
+	msgv = realloc(msgv, ++msgc * sizeof(msg_t*));
+	if (!msgv) {
+		abort();
+		return 0;}
+	msgv[msgc - 1] = msg;
 
-static void freem(msg_t* msg) {
+	return msg;}
+
+static void delmsg(msg_t* msg) {
+	int msgi = -1;
+	for (int i = 0; i < msgc; ++i) { 
+		if (msgv[i] == msg && msgi == -1)
+			msgi = i;
+		if (i > msgi && msgi != -1)
+			msgv[i - 1] = msgv[i];}
+	if (msgi == -1)
+		return;
+
 	free(msg->odraw);
 	free(msg);
-	msg = 0;}
+	
+	msgv = realloc(msgv, --msgc * sizeof(msg_t*));
+	if (!msgv && msgc > 0) {
+		abort();
+		return;}}
 
-static int cmpm(msg_t* a, msg_t* b) {
+static int cmpmsg(msg_t* a, msg_t* b) {
 	return !(a->row == b->row &&
 		a->col == b->col &&
 		a->cols == b->cols &&
 		a->buf == b->buf);}
 
-static void drawm(msg_t* msg) {
+static msg_t* getexistingmsg(msg_t* msg) {
+	for (int i = 0; i < msgc; ++i)
+		if (cmpmsg(msg, msgv[i]) == 0)
+			return msgv[i];
+
+	return 0;}
+
+static int updatemsg(msg_t* msg) {
 	char draw[msg->cols + 1];
-	strcpy(draw, msg->buf);
+	strncpy(draw, msg->buf, msg->cols);
 	memset(draw + strlen(msg->buf), ' ', msg->cols - strlen(msg->buf));
 	draw[msg->cols] = '\0';
 
-	if (strcmp(draw, msg->odraw) == 0 && *msg->odraw != 0)
-		return;
-	strcpy(msg->odraw, draw);
-	
-	printf("%s%s", MOVECURS(msg->row, msg->col), msg->odraw);
-	doflush = 1;}
+	if (strcmp(draw, msg->odraw) != 0 || *msg->odraw == 0) {
+		strcpy(msg->odraw, draw);
+		return 0;}
+	return 1;}
+
+static void drawmsg(msg_t* msg) {
+	printf("%s%s", MOVECURS(msg->row, msg->col), msg->odraw);}
+

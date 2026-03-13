@@ -11,13 +11,9 @@
 #include <ctype.h>
 
 // global vars
-char* FORE1 = 0; 
-char* FORE2 = 0;
-char* FORE3 = 0;
-char* FORE4 = 0;
-char* FORE5 = 0;
-char* FOREERR = 0;
-char* FORESUC = 0;
+char* tuiforev[TUIFOREC] = {0}; 
+char* tuiforeerr = 0;
+char* tuiforesuc = 0;
 char* MOVECURS(int row, int col) {
 	static char rstrs[16][64];
 	static int rstri;
@@ -29,20 +25,21 @@ char* MOVECURS(int row, int col) {
 	memset(rstrs[rstri], '\0', 64);
 	snprintf(rstrs[rstri], 64, "\033[%d;%dH", row, col);	
 	return rstrs[rstri];}
-int doflush = 1;
-pthread_mutex_t flushmutex = PTHREAD_MUTEX_INITIALIZER;
-int* isrunning = 0;
-int width; int height;
+pthread_mutex_t tuiflushmutex = PTHREAD_MUTEX_INITIALIZER;
+int* tuirunning = 0;
+int tuiwidth; int tuiheight;
+int tuiframerate = 10;
 
 // local vars
 static struct termios oldtermattrs;
 static int istyping = 0;
-static char* cmdbuf = NULL;
-static char* msgbuf = NULL;
+static char* cmdbuf = 0;
+static char* msgbuf = 0;
 static int cmdbuft;
+static char exitmsg[128] = {0};
 
 // local func defs
-static void sigint(int);
+static void sighandler(int);
 static void parseargs(void*);
 static void initin();
 static int initout();
@@ -52,16 +49,21 @@ static void exitin();
 static void exitout();
 static int q(int, char**);
 
-// global func tui thread
-void* (*tuiinit(int* isrunningp))(void*) {
-	isrunning = isrunningp;
+// global funcs
+void* (*tuiinit(int* running))(void*) {
+	tuirunning = running;
 	initin();
-	*isrunning = !initout();
+	*tuirunning = !initout();
 
 	return tui;}
 
+void tuisetframerate(int framerate) {
+	tuiframerate = framerate;}
+
 void* tui(void* arg) {
-	while (*isrunning) {
+	parseargs(arg);
+
+	while (*tuirunning) {
 		struct timespec tpre, tpost;
 		clock_gettime(CLOCK_MONOTONIC, &tpre);
 		
@@ -70,28 +72,29 @@ void* tui(void* arg) {
 		
 		clock_gettime(CLOCK_MONOTONIC, &tpost);
 		int elapsed = (tpost.tv_sec - tpre.tv_sec) * 1000000 + (tpost.tv_nsec - tpre.tv_nsec) / 1000;
-		int remaining = (1000000 / FRAMERATE) - elapsed;
+		int remaining = (1000000 / tuiframerate) - elapsed;
 		if (remaining > 0) {
 			struct timespec sleep = {0, remaining * 1000};
-			nanosleep(&sleep, NULL);}}
+			nanosleep(&sleep, 0);}}
 	
 	exitin();
 	exitout();
 
-	return NULL;}
+	return 0;}
 
 // local funcs
-static void sigint(int sig) {
-	(void)sig;
-	*isrunning = 0;}
+static void sighandler(int sig) {
+	snprintf(exitmsg, 128, "signal %d: %s", sig, strsignal(sig));
+	*tuirunning = 0;}
 
 static void parseargs(void* args) {
 	(void)args;}
 
 static void initin() {
-	signal(SIGINT, sigint); // handle signal interrupt safely
+	signal(SIGINT, sighandler); // handle sigint and sigabrt safely
+	signal(SIGABRT, sighandler);
 	
-	setvbuf(stdout, NULL, _IOFBF, 8192);  // disable printf automatically flushing to stdout
+	setvbuf(stdout, 0, _IOFBF, 8192);  // disable printf automatically flushing to stdout
 	
 	struct termios newtermattrs; // disable echo and canonical mode
 	tcgetattr(STDIN_FILENO, &oldtermattrs);
@@ -102,121 +105,106 @@ static void initin() {
 	int flags = fcntl(STDIN_FILENO, F_GETFL, 0); // disable stdin funcs yeilding
 	fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 
-	cmdnew("q", q);} // default commands
+	cmdnew("q", q); // default commands
+	cmdnew("quit", q);}
 
 static int initout() {
 	char* ct = getenv("COLORTERM"); // set forecolors to 24BIT versions if terminal supports 24BIT colors
 	char *term = getenv("TERM");
 	if (ct && term && strcmp(term, "linux") != 0 &&(strcmp(ct, "truecolor") == 0 || strcmp(ct, "24BIT") == 0)) {
-		FORE1 = FORE124BIT;
-		FORE2 = FORE224BIT;
-		FORE3 = FORE324BIT;
-		FORE4 = FORE424BIT;
-		FORE5 = FORE524BIT;
-		FOREERR = FOREERR24BIT;
-		FORESUC = FORESUC24BIT;}
+		tuiforev[0] = FORE124BIT;
+		tuiforev[1] = FORE224BIT;
+		tuiforev[2] = FORE324BIT;
+		tuiforev[3] = FORE424BIT;
+		tuiforev[4] = FORE524BIT;
+		tuiforeerr = FOREERR24BIT;
+		tuiforesuc = FORESUC24BIT;}
 	else {
-		FORE1 = FOREWHITTY;
-		FORE2 = FOREWHITTY;
-		FORE3 = FOREWHITTY;
-		FORE4 = FOREWHITTY;
-		FORE5 = FOREWHITTY;
-		FOREERR = FOREERRTTY;
-		FORESUC = FORESUCTTY;}
+		tuiforev[0] = FOREWHITTY;
+		tuiforev[1] = FOREWHITTY;
+		tuiforev[2] = FOREWHITTY;
+		tuiforev[3] = FOREWHITTY;
+		tuiforev[4] = FOREWHITTY;
+		tuiforeerr = FOREERRTTY;
+		tuiforesuc = FORESUCTTY;}
 
 	struct winsize w; // get width and height of terminal/tty
 	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1 || w.ws_row == 0 || w.ws_col == 0)
 		return 1;
-	height = w.ws_row; width = w.ws_col;
+	tuiheight = w.ws_row; tuiwidth = w.ws_col;
 
-	pthread_mutex_lock(&flushmutex);
 	printf("%s%s%s%s%s", SAVECURS, HIDECURS, ALTBUF, CLRBUF, CLRATTRS); // enter alt buffer
-	doflush = 1;
-	pthread_mutex_unlock(&flushmutex);
 
-	cmdbuf = malloc(width); // allocate memory for buffers
-	msgbuf = malloc(width);
-
-	cmdbuft = clock();
-//	graphst = clock();
+	cmdbuf = malloc(tuiwidth); // allocate memory for buffers
+	msgbuf = malloc(tuiwidth);
+	memset(cmdbuf, 0, tuiwidth);
+	memset(msgbuf, 0, tuiwidth);
 	
-	memset(cmdbuf, 0, width);
-	memset(msgbuf, 0, width);
+	cmdbuft = clock();
+	
+	msgnew(tuiheight - 1, 1, tuiwidth, msgbuf); // draw cmd and msg bufs
+	msgnew(tuiheight, 1, tuiwidth, cmdbuf);
 	
 	return 0;}
 
 static void iterin() {
-	int ch = getchar();
-		
-	if (istyping) { // cmdbuffer related input
+	for (int ch; !istyping && (ch = getchar()) != EOF;) {
+		switch (ch) { // any other input
+		default:
+			if (ch == cmdprefix) { // cmd prefix entered, allow typing in cmdbuffer
+				istyping = 1;
+				if ((int)strlen(cmdbuf) < tuiwidth - 1)
+					cmdbuf[strlen(cmdbuf)] = ch;
+				break;}
+			
+			bindexecute(ch);
+			break;}}
+	
+	for (int ch; istyping && (ch = getchar()) != EOF;) // cmdbuffer related input
 		switch (ch) {
-		case EOF:
-			break;
 		case '\n': { // if enter pressed, execute cmd
-			int ret = cmdexec(cmdbuf);
+			int ret = cmdexecute(cmdbuf);
 			switch (ret) {
 			case CMDSUCCESS: 
-				snprintf(msgbuf, width, "%s%s%s%s", FORESUC, BOLD, cmdbuf, CLRATTRS);
+				snprintf(msgbuf, tuiwidth, "%s%s%s%s", tuiforesuc, BOLD, cmdbuf, CLRATTRS);
 				break;
 			case CMDINVALID: case CMDINVALIDARGC: case CMDINVALIDARGV: {
 				char* generalmsg = ret == CMDINVALID ? "invalid command" : 
 					(ret == CMDINVALIDARGC ? "invalid arg count" : 
 					 "invalid arg values");
-				snprintf(msgbuf, width, "%s%s%s: %s%s", FOREERR, BOLD, generalmsg, cmdbuf, CLRATTRS);
+				snprintf(msgbuf, tuiwidth, "%s%s%s: %s%s", tuiforeerr, BOLD, generalmsg, cmdbuf, CLRATTRS);
 				break;}}
 
 			istyping = 0;
-			memset(cmdbuf, 0, width);
+			memset(cmdbuf, 0, tuiwidth);
+			
+			for (; (ch = getchar()) != EOF;); // clear stdin
+
 			break;}
 		case 127: case 8: // if backspace pressed, delete last char in cmdbuffer
 			istyping = strlen(cmdbuf) > 1;
 			cmdbuf[strlen(cmdbuf) - 1] = '\0';
 			break;
 		default:  // if valid char pressed, add to cmdbuffer
-			if ((int)strlen(cmdbuf) < width - 1 && isprint(ch)) 
+			if ((int)strlen(cmdbuf) < tuiwidth - 1 && isprint(ch)) 
 				cmdbuf[strlen(cmdbuf)] = ch;
-			break;}	
-		return;}
-
-	switch (ch) { // any other input
-	case EOF:
-		break;
-	default:
-		if (ch == cmdprefix) { // cmd prefix entered, allow typing in cmdbuffer
-			istyping = 1;
-			if ((int)strlen(cmdbuf) < width - 1)
-				cmdbuf[strlen(cmdbuf)] = ch;
-			break;}
-
-		for (int i = 0; i < nbinds; ++i) // binds 
-			if (ch == binds[i]->key) {
-				binds[i]->func();
-				break;}}}
+			break;}}
 
 static void iterout() {
-	for (int i = 0; i < ninfos; ++i) // draw changed infos
-		infodraw(infos[i]->row, infos[i]->col, infos[i]->cols, infos[i]->clr, infos[i]->title, infos[i]->value);
-
-	for (int i = 0; i < nmsgs; ++i) // draw changed msgs
-		msgdraw(msgs[i]->row, msgs[i]->col, msgs[i]->cols, msgs[i]->buf);
-
-	msgdraw(height - 1, 1, width, msgbuf); // draw cmd and msg bufs
-	msgdraw(height, 1, width, cmdbuf);
+	infodrawall();	
+	msgdrawall();
 	
 	if (istyping && clock() - cmdbuft > CLOCKS_PER_SEC / 4) { // draw underscore at end of cmdbuffer
 		cmdbuft = clock();
 		char endchar = cmdbuft % (CLOCKS_PER_SEC / 2) > CLOCKS_PER_SEC / 4 ? '_' : ' ';
 
-		pthread_mutex_lock(&flushmutex);
-		printf("%s%c%s", MOVECURS(height, strlen(cmdbuf) + 1), endchar, CLRTOEOL);
-		doflush = 1;
-		pthread_mutex_unlock(&flushmutex);}
-
-	pthread_mutex_lock(&flushmutex); // flush stdout if needed
-	if (doflush) {
-		doflush = 0;
-		fflush(stdout);}
-	pthread_mutex_unlock(&flushmutex);}
+		pthread_mutex_lock(&tuiflushmutex);
+		printf("%s%c%s", MOVECURS(tuiheight, strlen(cmdbuf) + 1), endchar, CLRTOEOL);
+		pthread_mutex_unlock(&tuiflushmutex);}
+	
+	pthread_mutex_lock(&tuiflushmutex);
+	fflush(stdout);
+	pthread_mutex_lock(&tuiflushmutex);}
 
 static void exitin() {
 	tcsetattr(STDIN_FILENO, TCSANOW, &oldtermattrs);} // reenable echo and canonical mode
@@ -224,22 +212,22 @@ static void exitin() {
 static void exitout() {
 	free(cmdbuf);
 	free(msgbuf);
+
+	cmdfreeall();
 	bindfreeall();
 	msgfreeall();
 	infofreeall();
-	cmdfreeall();
-//	graphfreeall();
 	
-	pthread_mutex_lock(&flushmutex);
-	printf("%s%s%s%s%s", CLRATTRS, CLRBUF, REGBUF, LOADCURS, SHOWCURS); // restore regular buffer
+	pthread_mutex_lock(&tuiflushmutex);
+	printf("%s%s%s%s%s\n%s\n", CLRATTRS, CLRBUF, REGBUF, LOADCURS, SHOWCURS, exitmsg);
 	fflush(stdout);
-	pthread_mutex_unlock(&flushmutex);}
+	pthread_mutex_unlock(&tuiflushmutex);} // restore regular buffer
 
 static int q(int argc, char** argv) {
 	(void)argv;
 	if (argc != 1)
 		return CMDINVALIDARGC;
 	
-	*isrunning = 0;
+	*tuirunning = 0;
 	return CMDSUCCESS;}
 

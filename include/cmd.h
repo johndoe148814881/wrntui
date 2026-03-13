@@ -5,17 +5,10 @@
 #define CMDINVALIDARGV -2
 #define CMDINVALIDARGC -3
 
-typedef struct {
-	char* cmd;
-	int (*func)(int, char**);} cmd_t;
+extern int cmdprefix;
 
-extern cmd_t** cmds; extern int ncmds;
-
-extern char cmdprefix;
-
-extern void cmdsetprefix(char);
-extern void cmdnew(char*, int (*)(int, char**));
+extern void cmdnew(char* command, int (*function)(int argc, char** argv));
+extern int cmdexecute(char*);
 extern void cmdfreeall();
-extern int cmdexec(char*);
 
 #endif

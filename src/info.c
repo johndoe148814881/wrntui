@@ -4,83 +4,185 @@
 #include <stdio.h>
 #include <string.h>
 
-// local func defs
-static info_t newi(int, int, int, char*, char*, frac_t*);
-static void freei(info_t*);
-static int cmpi(info_t*, info_t*);
-static void drawi(info_t*);
+// local type defs
+typedef struct {
+	int row;
+	int col;
+	int cols;
+	int type;
+	char* clr;
+	char* name;
+	char* odraw;
+	void* value;
+	void* ovalue;} info_t;
 
-// global vars
-info_t** infos = 0; int ninfos = 0;
+// local vars
+static info_t** infov = 0; static int infoc = 0;
+
+// local func defs
+static info_t* newinfo(int, int, int, char*, char*, void*, int);
+static void delinfo(info_t*);
+static int cmpinfo(info_t*, info_t*);
+static info_t* getexistinginfo(info_t*);
+static int updateinfo(info_t*);
+static void drawinfo(info_t*);
 
 // global funcs
-void infodraw(int row, int col, int cols, char* clr, char* title, frac_t* value) {
-	pthread_mutex_lock(&flushmutex);
-	info_t info = newi(row, col, cols, clr, title, value);
+void infonew(int row, int col, int cols, char* clr, char* name, void* value, int type) {
+	pthread_mutex_lock(&tuiflushmutex);
 
-	// if arguments equal an existing info, use that one instead, else add a new entry to infos
-	int exists = 0;
-	for (int i = 0; i < ninfos; ++i)
-		if ((exists = cmpi(&info, infos[i]) == 0)) {
-			info_t oinfo = info;
-			info = *infos[i];
-			free(oinfo.odraw);
-			break;}
+	info_t* info = newinfo(row, col, cols, clr, name, value, type);
+	
+	info_t* duplicate = getexistinginfo(info);
+	if (duplicate)
+		delinfo(info);
 
-	if (!exists) {
-		infos = realloc(infos, ++ninfos * sizeof(info_t*));
-		infos[ninfos - 1] = malloc(sizeof(info_t));
-		*infos[ninfos - 1] = info;}
+	pthread_mutex_unlock(&tuiflushmutex);}
 
-	drawi(&info);
-	pthread_mutex_unlock(&flushmutex);}
+void infodrawall() {
+	pthread_mutex_lock(&tuiflushmutex);
+	
+	for (int i = 0; i < infoc; ++i)
+		if (!updateinfo(infov[i]))
+			drawinfo(infov[i]);
+
+	pthread_mutex_unlock(&tuiflushmutex);}
 
 void infofreeall() {
-	pthread_mutex_lock(&flushmutex);
-	for (int i = 0; i < ninfos; ++i)
-		freei(infos[i]);
+	pthread_mutex_lock(&tuiflushmutex);
+	
+	for (; infoc > 0;)
+		delinfo(infov[0]);
 
-	free(infos);
-	infos = 0; ninfos = 0;
-	pthread_mutex_unlock(&flushmutex);}
+	pthread_mutex_unlock(&tuiflushmutex);}
 
 // local funcs
-static info_t newi(int row, int col, int cols, char* clr, char* title, frac_t* value) {
+static info_t* newinfo(int row, int col, int cols, char* clr, char* name, void* value, int type) {
 	char* odraw = malloc(cols + 1);
+	if (!odraw) {
+		abort();
+		return 0;}
 	memset(odraw, '\0', cols + 1);
+	
+	void* ovalue;
+	switch (type) {
+	case INFOINT: {
+		int* ointvalue = malloc(sizeof(int));
+		if (!ointvalue) {
+			abort();
+			return 0;}
+		*ointvalue = 0;
+		ovalue = (void*)ointvalue;
+		break;}
+	case INFOFRAC: {
+		frac_t* ofracvalue = malloc(sizeof(frac_t));
+		if (!ofracvalue) {
+			abort();
+			return 0;}
+		*ofracvalue = fracnew(0, 1);
+		ovalue = (void*)ofracvalue;
+		break;}
+	default:
+		abort();
+		return 0;}
 
-	return (info_t){row, col, cols, clr, title, odraw, value, fracnew(0, 1)};}
+	info_t* info = malloc(sizeof(info_t));
+	if (!info) {
+		abort();
+		return 0;}
+	info->row = row;
+	info->col = col;
+	info->cols = cols;
+	info->clr = clr;
+	info->name = name;
+	info->odraw = odraw;
+	info->value = value;
+	info->ovalue = ovalue;
+	info->type = type;
 
-static void freei(info_t* info) {
+	infov = realloc(infov, ++infoc * sizeof(info_t*));
+	if (!infov) {
+		abort();
+		return 0;}
+	infov[infoc - 1] = info;
+
+	return info;} 
+
+static void delinfo(info_t* info) {
+	int infoi = -1;
+	for (int i = 0; i < infoc; ++i) { 
+		if (infov[i] == info && infoi == -1)
+			infoi = i;
+		if (i > infoi && infoi != -1)
+			infov[i - 1] = infov[i];}
+	if (infoi == -1)
+		return;
+
 	free(info->odraw);
+	free(info->ovalue);
 	free(info);
-	info = 0;}
+	
+	infov = realloc(infov, --infoc * sizeof(info_t*));
+	if (!infov && infoc > 0) {
+		abort();
+		return;}}
 
-static int cmpi(info_t* a, info_t* b) {
+static int cmpinfo(info_t* a, info_t* b) {
 	return !(a->row == b->row &&
 		a->col == b->col &&
 		a->cols == b->cols &&
 		strcmp(a->clr, b->clr) == 0 &&
-		strcmp(a->title, b->title) == 0 &&
+		strcmp(a->name, b->name) == 0 &&
 		a->value == b->value);}
 
-static void drawi(info_t* info) {
-	if (fraccmp(info->value, &info->ovalue) == 0 && *info->odraw != 0)
-		return;
-	info->ovalue = *info->value;
+static info_t* getexistinginfo(info_t* info) {
+	for (int i = 0; i < infoc; ++i)
+		if (cmpinfo(info, infov[i]) == 0)
+			return infov[i];
 
-	int len = snprintf(info->odraw, info->cols, "%s: %.17g", info->title, fractod(info->value));
+	return 0;}
+
+static int updateinfo(info_t* info) {
+	int len;
+	switch (info->type) {
+	case INFOINT:
+		if (*(int*)info->value == *(int*)info->ovalue && *info->odraw != 0)
+			return 1;
+		else {
+			*(int*)info->ovalue = *(int*)info->value;
+			len = snprintf(info->odraw, info->cols, "%s: %d", info->name, *(int*)info->value);
+			break;}
+	case INFOFRAC:
+		if (fraccmp((frac_t*)info->value, (frac_t*)info->ovalue) == 0 && *info->odraw != 0)
+			return 1;
+		else {
+			*(frac_t*)info->ovalue = *(frac_t*)info->value;
+			len = snprintf(info->odraw, info->cols, "%s: %.17g", info->name, fractod((frac_t*)info->value));
+			break;}
+	default:
+		return 1;}
+
 	len = len < 0 ? 0 : len;
 	len = len >= info->cols ? info->cols - 1 : len;
-
 	memset(info->odraw + len, ' ', info->cols - 1 - len);
+
+	return 0;}
 	
-	printf("%s%.*s%s%s%s%s", 
+static void drawinfo(info_t* info) {
+	int namelen = (int)strlen(info->name) + 2;
+	namelen = namelen >= info->cols ? info->cols : namelen;
+
+	if (namelen != info->cols)
+		printf("%s%.*s%s%s%s%s", 
 			MOVECURS(info->row, info->col), 
-			(int)strlen(info->title) + 2, info->odraw, 
+			namelen, info->odraw, 
 			info->clr, 
 			BOLD, 
-			info->odraw + strlen(info->title) + 2, 
+			info->odraw + namelen, 
 			CLRATTRS);
-	doflush = 1;}
+	else 
+		printf("%s%.*s%s", 
+			MOVECURS(info->row, info->col), 
+			namelen, info->odraw,   
+			CLRATTRS);}
 

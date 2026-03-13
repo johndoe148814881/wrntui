@@ -1,20 +1,11 @@
 #ifndef TUI_INFO_H
 #define TUI_INFO_H
-#include <wrnfrac/frac.h>
+#include "/home/wrn/projs/wrnfrac/include/frac.h"
+#define INFOINT 0
+#define INFOFRAC 1
 
-typedef struct {
-	int row;
-	int col;
-	int cols;
-	char* clr;
-	char* title;
-	char* odraw;
-	frac_t* value;
-	frac_t ovalue;} info_t;
-
-extern info_t** infos; extern int ninfos;
-
-extern void infodraw(int, int, int, char*, char*, frac_t*);
+extern void infonew(int row, int column, int columns, char* colour, char* name, void* value, int typeidentifier);
+extern void infodrawall();
 extern void infofreeall();
 
 #endif

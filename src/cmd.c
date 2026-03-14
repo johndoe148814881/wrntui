@@ -54,22 +54,18 @@ int cmdexecute(char* cmdbuf) {
 // local funcs
 static void newcmd(char* cmdstr, int (*func)(int, char**)) {
 	char* heapcmdstr = malloc(strlen(cmdstr) + 1);
-	if (!heapcmdstr) {
+	cmd_t* cmd = malloc(sizeof(cmd_t));
+	cmdv = realloc(cmdv, ++cmdc * sizeof(cmd_t*));
+	
+	if (!heapcmdstr || !cmd || !cmdv) {
 		abort();
 		return;}
+	
 	strcpy(heapcmdstr, cmdstr);
 
-	cmd_t* cmd = malloc(sizeof(cmd_t));
-	if (!cmd) {
-		abort();
-		return;}
 	cmd->cmd = heapcmdstr;
 	cmd->func = func;
 
-	cmdv = realloc(cmdv, ++cmdc * sizeof(cmd_t*));
-	if (!cmdv) {
-		abort();
-		return;}
 	cmdv[cmdc - 1] = cmd;}
 	
 static void delcmd(cmd_t* cmd) {
@@ -92,22 +88,19 @@ static void delcmd(cmd_t* cmd) {
 
 /* author: chatgpt & claude */ static void alloctokens(char* cmd, int* argcp, char*** argvp) {
 	size_t len = strlen(cmd);
+	int capacity = 8;
 	char* copy = malloc(len + 1);
-	if (!copy) {
+	char** argv = malloc(capacity * sizeof(char*));
+	if (!copy || !argv) {
 		abort();
 		return;}
 	strcpy(copy, cmd);
-	int capacity = 8;
-	char** argv = malloc(capacity * sizeof(char*));
-	if (!argv) {
-		abort();
-		return;}
 	int argc = 0;
 	char* p = copy;
 	while (*p) {
 		while (isspace((unsigned char)*p))
 			p++;
-		if (*p == '\0')
+		if (*p == 0)
 			break;
 		char* start = p;
 		while (*p && !isspace((unsigned char)*p))

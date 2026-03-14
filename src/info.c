@@ -51,10 +51,12 @@ void infofreeall() {
 // local funcs
 static void newinfo(int row, int col, int cols, char* clr, char* name, void* value, int type) {
 	char* odraw = malloc(cols + 1);
-	if (!odraw) {
+	info_t* info = malloc(sizeof(info_t));
+	infov = realloc(infov, ++infoc * sizeof(info_t*));
+	
+	if (!odraw || !info || !infov) {
 		abort();
 		return;}
-	memset(odraw, '\0', cols + 1);
 	
 	void* ovalue;
 	switch (type) {
@@ -78,10 +80,8 @@ static void newinfo(int row, int col, int cols, char* clr, char* name, void* val
 		abort();
 		return;}
 
-	info_t* info = malloc(sizeof(info_t));
-	if (!info) {
-		abort();
-		return;}
+	memset(odraw, '\0', cols + 1);
+	
 	info->row = row;
 	info->col = col;
 	info->cols = cols;
@@ -92,10 +92,6 @@ static void newinfo(int row, int col, int cols, char* clr, char* name, void* val
 	info->ovalue = ovalue;
 	info->type = type;
 
-	infov = realloc(infov, ++infoc * sizeof(info_t*));
-	if (!infov) {
-		abort();
-		return;}
 	infov[infoc - 1] = info;} 
 
 static void delinfo(info_t* info) {
@@ -139,17 +135,15 @@ static int updateinfo(info_t* info) {
 	case INFOINT:
 		if (*(int*)info->value == *(int*)info->ovalue && *info->odraw != 0)
 			return 1;
-		else {
-			*(int*)info->ovalue = *(int*)info->value;
-			len = snprintf(info->odraw, info->cols, "%s: %d", info->name, *(int*)info->value);
-			break;}
+		*(int*)info->ovalue = *(int*)info->value;
+		len = snprintf(info->odraw, info->cols, "%s: %d", info->name, *(int*)info->value);
+		break;
 	case INFOFRAC:
 		if (fraccmp((frac_t*)info->value, (frac_t*)info->ovalue) == 0 && *info->odraw != 0)
 			return 1;
-		else {
-			*(frac_t*)info->ovalue = *(frac_t*)info->value;
-			len = snprintf(info->odraw, info->cols, "%s: %.17g", info->name, fractod((frac_t*)info->value));
-			break;}
+		*(frac_t*)info->ovalue = *(frac_t*)info->value;
+		len = snprintf(info->odraw, info->cols, "%s: %.17g", info->name, fractod((frac_t*)info->value));
+		break;
 	default:
 		return 1;}
 

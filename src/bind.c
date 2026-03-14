@@ -29,16 +29,15 @@ void bindfreeall() {
 // local funcs
 static void newbind(int key, void (*func)(void)) {
 	bind_t* bind = malloc(sizeof(bind_t));
-	if (!bind) {
+	bindv = realloc(bindv, ++bindc * sizeof(bind_t*));
+	
+	if (!bind || !bindv) {
 		abort();
 		return;}
+	
 	bind->key = key;
 	bind->func = func;
 
-	bindv = realloc(bindv, ++bindc * sizeof(bind_t*));
-	if (!bindv) {
-		abort();
-		return;}
 	bindv[bindc - 1] = bind;}
 
 static void delbind(bind_t* bind) {

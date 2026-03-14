@@ -207,7 +207,8 @@ static void iterout() {
 		memset(cmdbufvis, 0, strlen(cmdbufvis));
 
 	msgdrawall();
-	infodrawall();	
+	infodrawall();
+	listdraw();
 	
 	pthread_mutex_lock(&tuiflushmutex);
 	fflush(stdout);
@@ -225,7 +226,8 @@ static void exitout() {
 	bindfreeall();
 	msgfreeall();
 	infofreeall();
-	
+	listfree();
+
 	pthread_mutex_lock(&tuiflushmutex);
 	printf("%s%s%s%s%s\n%s\n", CLRATTRS, CLRBUF, REGBUF, LOADCURS, SHOWCURS, exitmsg);
 	fflush(stdout);

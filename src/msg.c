@@ -17,19 +17,15 @@ static msg_t** msgv = 0; static int msgc = 0;
 
 // local func defs
 static void newmsg(int, int, int, char*);
-static void delmsg(msg_t*);
-static int cmpmsg(msg_t*, msg_t*);
-static msg_t* getexistingmsg(int, int, int, char*);
+static void delallmsgs();
 static int updatemsg(msg_t*);
 static void drawmsg(msg_t*);
 
 // global funcs
 void msgnew(int row, int col, int cols, char* buf) {
-	msg_t* duplicate = getexistingmsg(row, col, cols, buf);
-	if (!duplicate) {
-		pthread_mutex_lock(&tuiflushmutex);
-		newmsg(row, col, cols, buf);
-		pthread_mutex_unlock(&tuiflushmutex);}}
+	pthread_mutex_lock(&tuiflushmutex);
+	newmsg(row, col, cols, buf);
+	pthread_mutex_unlock(&tuiflushmutex);}
 
 void msgdrawall() {
 	pthread_mutex_lock(&tuiflushmutex);
@@ -40,66 +36,35 @@ void msgdrawall() {
 
 void msgfreeall() {
 	pthread_mutex_lock(&tuiflushmutex);
-	for (; msgc > 0;)
-		delmsg(msgv[0]);
+	delallmsgs();
 	pthread_mutex_unlock(&tuiflushmutex);}
 
 // local funcs
 static void newmsg(int row, int col, int cols, char* buf) {
 	char* odraw = malloc(cols + 1);
-	if (!odraw) {
+	msg_t* msg = malloc(sizeof(msg_t));
+	msgv = realloc(msgv, ++msgc * sizeof(msg_t*));
+	
+	if (!odraw || !msg || !msgv) {
 		abort();
 		return;}
+	
 	memset(odraw, '\0', cols + 1);
 	
-	msg_t* msg = malloc(sizeof(msg_t));
-	if (!msg) {
-		abort();
-		return;}
 	msg->row = row;
 	msg->col = col;
 	msg->cols = cols;
 	msg->buf = buf;
 	msg->odraw = odraw;
 
-	msgv = realloc(msgv, ++msgc * sizeof(msg_t*));
-	if (!msgv) {
-		abort();
-		return;}
 	msgv[msgc - 1] = msg;}
 
-static void delmsg(msg_t* msg) {
-	int msgi = -1;
-	for (int i = 0; i < msgc; ++i) { 
-		if (msgv[i] == msg && msgi == -1)
-			msgi = i;
-		if (i > msgi && msgi != -1)
-			msgv[i - 1] = msgv[i];}
-	if (msgi == -1)
-		return;
-
-	free(msg->odraw);
-	free(msg);
-	
-	msgv = realloc(msgv, --msgc * sizeof(msg_t*));
-	if (!msgv && msgc > 0) {
-		abort();
-		return;}}
-
-static int cmpmsg(msg_t* a, msg_t* b) {
-	return !(a->row == b->row &&
-		a->col == b->col &&
-		a->cols == b->cols &&
-		a->buf == b->buf);}
-
-static msg_t* getexistingmsg(int row, int col, int cols, char* buf) {
-	msg_t msg = (msg_t){row, col, cols, buf, 0};
-
-	for (int i = 0; i < msgc; ++i)
-		if (cmpmsg(&msg, msgv[i]) == 0)
-			return msgv[i];
-
-	return 0;}
+static void delallmsgs() {
+	for (int i = 0; i < msgc; ++i) {
+		free(msgv[i]->odraw);
+		free(msgv[i]);}
+	free(msgv);
+	msgv = 0;}
 
 static int updatemsg(msg_t* msg) {
 	char draw[msg->cols + 1];

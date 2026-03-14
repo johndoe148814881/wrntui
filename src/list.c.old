@@ -1,0 +1,227 @@
+#include "../include/list.h"
+#include "../include/tui.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+// local type defs
+typedef struct {
+	int id;
+	void** valuev;
+	void** ovaluev;
+	char* odraw;} record_t;
+
+typedef struct { 
+	int cols;
+	int typeid;
+	char* clr;
+	char* name;} field_t;
+
+typedef struct {
+	int row;
+	int col;
+	int rows;
+	int cols;
+	int recordc;
+	int fieldc;
+	record_t** recordv;
+	field_t** fieldv;} list_t;
+
+// local vars
+static int lastid = 0;
+static list_t list = {0};
+
+// local func defs
+static void resetlist(int, int, int, int);
+static void addfield(int, char*, char*, int);
+static void addrecord(void**);
+static void delrecord(record_t*);
+static int updaterecord(record_t*);
+static void drawrecord(record_t*);
+
+// global funcs
+void listnew(int row, int col, int rows, int cols) {
+	resetlist(row, col, rows, cols);}
+
+void listaddfield(int cols, char* clr, char* name, int typeid) {
+	pthread_mutex_lock(&tuiflushmutex);
+	addfield(cols, clr, name, typeid);
+	pthread_mutex_unlock(&tuiflushmutex);}
+
+void listaddrecord(void** values) {
+	pthread_mutex_lock(&tuiflushmutex);
+	addrecord(values);
+	pthread_mutex_unlock(&tuiflushmutex);}
+
+void listdelrecord(void* firstvalue) {
+	record_t* record = 0;
+	for (int i = 0; i < list.recordc; ++i) {
+		if (list.recordv[i]->valuev[0] == firstvalue) {
+			record = list.recordv[i];
+			break;}}
+	
+	if (record) {
+		pthread_mutex_lock(&tuiflushmutex);
+		delrecord(record);
+		pthread_mutex_unlock(&tuiflushmutex);}}
+
+void listdraw() {
+	pthread_mutex_lock(&tuiflushmutex);
+	for (int i = 0; i < list.recordc; ++i)
+		if (!updaterecord(list.recordv[i]))
+			drawrecord(list.recordv[i]);
+	pthread_mutex_unlock(&tuiflushmutex);}
+
+void listfree() {
+	resetlist(0, 0, 0, 0);}
+
+// local funcs
+static void resetlist(int row, int col, int rows, int cols) {
+	list.row = row;
+	list.col = col;
+	list.rows = rows;
+	list.cols = cols;
+
+	for (int i = 0; i < list.fieldc; ++i)
+		free(list.fieldv[i]);
+	free(list.fieldv);
+	list.fieldv = 0;
+
+	for (int i = 0; i < list.recordc; ++i) {
+		for (int ii = 0; ii < list.fieldc; ++ii)
+			free(list.recordv[i]->ovaluev[ii]);
+		free(list.recordv[i]->ovaluev);
+		free(list.recordv[i]->odraw);
+		free(list.recordv[i]);}
+	free(list.recordv);
+	list.fieldc = 0;
+	list.recordc = 0;
+	list.recordv = 0;}
+
+static void addfield(int cols, char* clr, char* name, int typeid) {
+	field_t* field = malloc(sizeof(field_t));
+	list.fieldv = realloc(list.fieldv, ++list.fieldc * sizeof(field_t*));
+	if (!field || !list.fieldv) {
+		abort();
+		return;}
+	field->cols = cols;
+	field->clr = clr;
+	field->name = name;
+	field->typeid = typeid;
+	list.fieldv[list.fieldc - 1] = field;}
+
+static void addrecord(void** values) {
+	record_t* record = malloc(sizeof(record_t));
+	list.recordv = realloc(list.recordv, ++list.recordc * sizeof(record_t*));
+	if (!record || !list.recordv) {
+		abort();
+		return;}
+	record->ovaluev = malloc(sizeof(void*) * list.fieldc);
+	if (!record->ovaluev) {
+		abort();
+		return;}
+	for (int i = 0; i < list.fieldc; ++i)
+		switch (list.fieldv[i]->typeid) {
+		case LISTINT:
+			record->ovaluev[i] = malloc(sizeof(int));
+			if (!record->ovaluev[i]) {
+				abort();
+				return;}
+			*(int*)record->ovaluev[i] = 0;
+			break;
+		case LISTFRAC:
+			record->ovaluev[i] = malloc(sizeof(frac_t));
+			if (!record->ovaluev[i]) {
+				abort();
+				return;}
+			*(frac_t*)record->ovaluev[i] = fracnew(0, 1);
+			break;
+		default:
+			abort();
+			return;}
+	record->id = ++lastid;
+	record->valuev = values;
+	record->odraw = 0;
+	list.recordv[list.recordc - 1] = record;}
+
+static void delrecord(record_t* record) {
+	int recordi = -1;
+	for (int i = 0; i < list.recordc; ++i) { 
+		if (list.recordv[i] == record && recordi == -1)
+			recordi = i;
+		if (i > recordi && recordi != -1)
+			list.recordv[i - 1] = list.recordv[i];}
+	if (recordi == -1)
+		return;
+
+	for (int i = 0; i < list.fieldc; ++i)
+		free(record->ovaluev[i]);
+	free(record->ovaluev);
+	free(record->odraw);
+	free(record);
+	
+	list.recordv = realloc(list.recordv, --list.recordc * sizeof(record_t*));
+	if (!list.recordv && list.recordc > 0) {
+		abort();
+		return;}}
+
+static int updaterecord(record_t* record) {
+	char* draw = malloc(list.cols + 1);
+	memset(draw, 0, list.cols + 1);
+	
+	int coloffset = 0;
+	for (int i = 0; i < list.fieldc; ++i) {
+		char* fielddraw = malloc(list.fieldv[i]->cols);
+		if (!fielddraw) {
+			abort();
+			return 1;}
+		memset(fielddraw, ' ', list.fieldv[i]->cols);
+
+		int len;
+		switch (list.fieldv[i]->typeid) {
+		case LISTINT: 
+			if (*(int*)record->valuev[i] == *(int*)record->ovaluev[i] && *record->odraw != 0) {
+				strncpy(draw + coloffset, record->odraw + coloffset, list.fieldv[i]->cols);
+				free(fielddraw);
+				coloffset += list.fieldv[i]->cols;
+				continue;}
+			*(int*)record->ovaluev[i] = *(int*)record->valuev[i]; 
+			len = snprintf(fielddraw, list.fieldv[i]->cols, "%d", *(int*)record->valuev[i]);
+			break;
+		case LISTFRAC:
+			if (fraccmp((frac_t*)record->valuev[i], (frac_t*)record->ovaluev[i]) == 0 && *record->odraw != 0) {
+				strncpy(draw + coloffset, record->odraw + coloffset, list.fieldv[i]->cols);
+				free(fielddraw);
+				coloffset += list.fieldv[i]->cols;
+				continue;}
+			*(frac_t*)record->ovaluev[i] = *(frac_t*)record->valuev[i]; 
+			len = snprintf(fielddraw, list.fieldv[i]->cols, "%.17g", fractod((frac_t*)record->valuev[i]));
+			break;
+		default:
+			abort();
+			return 1;}
+
+		len = len < 0 ? 0 : len;
+		len = len >= list.fieldv[i]->cols ? list.fieldv[i]->cols - 1 : len;
+		memset(fielddraw + len, ' ', list.fieldv[i]->cols - 1 - len);
+
+		strncpy(draw + coloffset, fielddraw, list.fieldv[i]->cols);
+		free(fielddraw);
+		coloffset += list.fieldv[i]->cols;}
+
+	if (strcmp(draw, record->odraw) == 0) {
+		free(draw);
+		return 1;}
+	
+	free(record->odraw);
+	record->odraw = draw;
+
+	return 0;}
+
+static void drawrecord(record_t* record) {
+	int recordi = 0;
+	for (; recordi < list.recordc; ++recordi)
+		if (record == list.recordv[recordi])
+			break;
+
+	printf("%s%s%s", MOVECURS(list.row + recordi + 1, list.col), list.fieldv[recordi]->clr, record->odraw);}

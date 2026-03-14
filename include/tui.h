@@ -6,6 +6,7 @@
 #include "graph.h"
 #include "info.h"
 #include "msg.h"
+#include "list.h"
 #include <pthread.h>
 #define CMDSUCCESS 0
 #define CMDINVALID -1

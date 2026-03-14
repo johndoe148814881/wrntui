@@ -9,6 +9,7 @@
 #include <sys/ioctl.h>
 #include <string.h>
 #include <ctype.h>
+#define NANOSECS_PER_SEC 1000000000
 
 // global vars
 char* tuiforev[TUIFOREC] = {0}; 
@@ -36,14 +37,14 @@ static int istyping = 0;
 static char* cmdbuf = 0;
 static char* cmdbufvis = 0;
 static char* msgbuf = 0;
-static int cmdbufvist;
+static struct timespec ts;
 static char exitmsg[128] = {0};
 
 // local func defs
 static void sighandler(int);
 static void parseargs(void*);
 static void initin();
-static int initout();
+static void initout();
 static void iterin();
 static void iterout();
 static void exitin();
@@ -54,7 +55,7 @@ static int q(int, char**);
 void* (*tuiinit(int* running))(void*) {
 	tuirunning = running;
 	initin();
-	*tuirunning = !initout();
+	initout();
 
 	return tui;}
 
@@ -85,7 +86,7 @@ void* tui(void* arg) {
 
 // local funcs
 static void sighandler(int sig) {
-	snprintf(exitmsg, 128, "signal %d: %s", sig, strsignal(sig));
+	snprintf(exitmsg, 128, "caught signal: %s (%d)", strsignal(sig), sig);
 	*tuirunning = 0;}
 
 static void parseargs(void* args) {
@@ -109,9 +110,9 @@ static void initin() {
 	cmdnew("q", q); // default commands
 	cmdnew("quit", q);}
 
-static int initout() {
+static void initout() {
 	char* ct = getenv("COLORTERM"); // set forecolors to 24BIT versions if terminal supports 24BIT colors
-	char *term = getenv("TERM");
+	char* term = getenv("TERM");
 	if (ct && term && strcmp(term, "linux") != 0 &&(strcmp(ct, "truecolor") == 0 || strcmp(ct, "24BIT") == 0)) {
 		tuiforev[0] = FORE124BIT;
 		tuiforev[1] = FORE224BIT;
@@ -130,8 +131,9 @@ static int initout() {
 		tuiforesuc = FORESUCTTY;}
 
 	struct winsize w; // get width and height of terminal/tty
-	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1 || w.ws_row == 0 || w.ws_col == 0)
-		return 1;
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1 || w.ws_row == 0 || w.ws_col == 0) {
+		abort();
+		return;}
 	tuiheight = w.ws_row; tuiwidth = w.ws_col;
 
 	printf("%s%s%s%s%s", SAVECURS, HIDECURS, ALTBUF, CLRBUF, CLRATTRS); // enter alt buffer
@@ -139,17 +141,18 @@ static int initout() {
 	cmdbuf = malloc(tuiwidth); // allocate memory for buffers
 	cmdbufvis = malloc(tuiwidth);
 	msgbuf = malloc(tuiwidth);
+
+	if (!cmdbuf || !cmdbufvis || !msgbuf) {
+		abort();
+		return;}
+
 	memset(cmdbuf, 0, tuiwidth);
 	memset(cmdbufvis, 0, tuiwidth);
 	memset(msgbuf, 0, tuiwidth);
 	
-	cmdbufvist = clock();
-	
 	msgnew(tuiheight - 1, 1, tuiwidth, msgbuf); // draw cmd and msg bufs
-	msgnew(tuiheight, 1, tuiwidth, cmdbufvis);
+	msgnew(tuiheight, 1, tuiwidth, cmdbufvis);}
 	
-	return 0;}
-
 static void iterin() {
 	for (int ch; !istyping && (ch = getchar()) != EOF;) {
 		switch (ch) { // any other input
@@ -194,15 +197,17 @@ static void iterin() {
 			break;}}
 
 static void iterout() {
-	if (istyping && clock() - cmdbufvist > CLOCKS_PER_SEC / 4) { // draw underscore at end of cmdbuffer
-		cmdbufvist = clock();
-		char endchar = cmdbufvist % (CLOCKS_PER_SEC / 2) > CLOCKS_PER_SEC / 4 ? '_' : ' ';
-		snprintf(cmdbufvis, strlen(cmdbuf) + 1, "%s%c", cmdbuf, endchar);}
-	else if (!istyping && !*cmdbufvis)
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	
+	if (istyping) { // draw underscore at end of cmdbuffer
+		time_t time = (ts.tv_sec * NANOSECS_PER_SEC + ts.tv_nsec);
+		char endchar = time % (NANOSECS_PER_SEC / 2) > NANOSECS_PER_SEC / 4 ? '_' : ' ';
+		snprintf(cmdbufvis, strlen(cmdbuf) + 2, "%s%c", cmdbuf, endchar);}
+	else if (!istyping && *cmdbufvis)
 		memset(cmdbufvis, 0, strlen(cmdbufvis));
 
-	infodrawall();	
 	msgdrawall();
+	infodrawall();	
 	
 	pthread_mutex_lock(&tuiflushmutex);
 	fflush(stdout);
@@ -213,6 +218,7 @@ static void exitin() {
 
 static void exitout() {
 	free(cmdbuf);
+	free(cmdbufvis);
 	free(msgbuf);
 
 	cmdfreeall();

@@ -21,19 +21,15 @@ static info_t** infov = 0; static int infoc = 0;
 
 // local func defs
 static void newinfo(int, int, int, char*, char*, void*, int);
-static void delinfo(info_t*);
-static int cmpinfo(info_t*, info_t*);
-static info_t* getexistinginfo(int, int, int, char*, char*, void*, int);
+static void delallinfos();
 static int updateinfo(info_t*);
 static void drawinfo(info_t*);
 
 // global funcs
 void infonew(int row, int col, int cols, char* clr, char* name, void* value, int type) {
-	info_t* duplicate = getexistinginfo(row, col, cols, clr, name, value, type);
-	if (duplicate) {
-		pthread_mutex_lock(&tuiflushmutex);
-		newinfo(row, col, cols, clr, name, value, type);
-		pthread_mutex_unlock(&tuiflushmutex);}}
+	pthread_mutex_lock(&tuiflushmutex);
+	newinfo(row, col, cols, clr, name, value, type);
+	pthread_mutex_unlock(&tuiflushmutex);}
 
 void infodrawall() {
 	pthread_mutex_lock(&tuiflushmutex);
@@ -44,8 +40,7 @@ void infodrawall() {
 
 void infofreeall() {
 	pthread_mutex_lock(&tuiflushmutex);
-	for (; infoc > 0;)
-		delinfo(infov[0]);
+	delallinfos();
 	pthread_mutex_unlock(&tuiflushmutex);}
 
 // local funcs
@@ -94,40 +89,15 @@ static void newinfo(int row, int col, int cols, char* clr, char* name, void* val
 
 	infov[infoc - 1] = info;} 
 
-static void delinfo(info_t* info) {
-	int infoi = -1;
-	for (int i = 0; i < infoc; ++i) { 
-		if (infov[i] == info && infoi == -1)
-			infoi = i;
-		if (i > infoi && infoi != -1)
-			infov[i - 1] = infov[i];}
-	if (infoi == -1)
-		return;
+static void delallinfos() {
+	for (int i = 0; i < infoc; ++i) {
+		free(infov[i]->odraw);
+		free(infov[i]->ovalue);
+		free(infov[i]);}
 
-	free(info->odraw);
-	free(info->ovalue);
-	free(info);
-	
-	infov = realloc(infov, --infoc * sizeof(info_t*));
-	if (!infov && infoc > 0) {
-		abort();
-		return;}}
-
-static int cmpinfo(info_t* a, info_t* b) {
-	return !(a->row == b->row &&
-		a->col == b->col &&
-		a->cols == b->cols &&
-		strcmp(a->clr, b->clr) == 0 &&
-		strcmp(a->name, b->name) == 0 &&
-		a->value == b->value &&
-		a->type == b->type);}
-
-static info_t* getexistinginfo(int row, int col, int cols, char* clr, char* name, void* value, int type) {
-	info_t info = (info_t){row, col, cols, type, clr, name, 0, value, 0};
-	for (int i = 0; i < infoc; ++i)
-		if (cmpinfo(&info, infov[i]) == 0)
-			return infov[i];
-	return 0;}
+	free(infov);
+	infoc = 0;
+	infov = 0;}
 
 static int updateinfo(info_t* info) {
 	int len;

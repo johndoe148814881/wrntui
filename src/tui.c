@@ -13,6 +13,7 @@
 
 // global vars
 char* tuiforev[TUIFOREC] = {0}; 
+char* tuiforewhi = 0;
 char* tuiforeerr = 0;
 char* tuiforesuc = 0;
 char* MOVECURS(int row, int col) {
@@ -27,6 +28,7 @@ char* MOVECURS(int row, int col) {
 	snprintf(rstrs[rstri], 64, "\033[%d;%dH", row, col);	
 	return rstrs[rstri];}
 pthread_mutex_t tuiflushmutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t tuiwinmutex = PTHREAD_MUTEX_INITIALIZER;
 int* tuirunning = 0;
 int tuiwidth; int tuiheight;
 int tuiframerate = 30;
@@ -39,6 +41,7 @@ static char* cmdbufvis = 0;
 static char* msgbuf = 0;
 static struct timespec ts;
 static char exitmsg[128] = {0};
+static int showedhomewin = 0;
 
 // local func defs
 static void sighandler(int);
@@ -129,6 +132,7 @@ static void initout() {
 		tuiforev[4] = FOREWHITTY;
 		tuiforeerr = FOREERRTTY;
 		tuiforesuc = FORESUCTTY;}
+	tuiforewhi = FOREWHITTY;
 
 	struct winsize w; // get width and height of terminal/tty
 	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1 || w.ws_row == 0 || w.ws_col == 0) {
@@ -198,7 +202,13 @@ static void iterin() {
 
 static void iterout() {
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	
+
+	if (!showedhomewin)
+		if (!(showedhomewin = !winshow("main")))
+			return;
+
+	pthread_mutex_lock(&tuiwinmutex);
+
 	if (istyping) { // draw underscore at end of cmdbuffer
 		time_t time = (ts.tv_sec * NANOSECS_PER_SEC + ts.tv_nsec);
 		char endchar = time % (NANOSECS_PER_SEC / 2) > NANOSECS_PER_SEC / 4 ? '_' : ' ';
@@ -212,7 +222,8 @@ static void iterout() {
 	
 	pthread_mutex_lock(&tuiflushmutex);
 	fflush(stdout);
-	pthread_mutex_unlock(&tuiflushmutex);}
+	pthread_mutex_unlock(&tuiflushmutex);
+	pthread_mutex_unlock(&tuiwinmutex);}
 
 static void exitin() {
 	tcsetattr(STDIN_FILENO, TCSANOW, &oldtermattrs);} // reenable echo and canonical mode
@@ -227,11 +238,10 @@ static void exitout() {
 	msgfreeall();
 	infofreeall();
 	listfree();
+	winfreeall();
 
-	pthread_mutex_lock(&tuiflushmutex);
 	printf("%s%s%s%s%s\n%s\n", CLRATTRS, CLRBUF, REGBUF, LOADCURS, SHOWCURS, exitmsg);
-	fflush(stdout);
-	pthread_mutex_unlock(&tuiflushmutex);} // restore regular buffer
+	fflush(stdout);} // restore regular buffer
 
 static int q(int argc, char** argv) {
 	(void)argv;

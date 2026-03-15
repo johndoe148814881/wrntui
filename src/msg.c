@@ -17,6 +17,7 @@ static msg_t** msgv = 0; static int msgc = 0;
 
 // local func defs
 static void newmsg(int, int, int, char*);
+static void delmsg(msg_t*);
 static void delallmsgs();
 static int updatemsg(msg_t*);
 static void drawmsg(msg_t*);
@@ -39,6 +40,12 @@ void msgfreeall() {
 	delallmsgs();
 	pthread_mutex_unlock(&tuiflushmutex);}
 
+void msgfreealluser() {
+	pthread_mutex_lock(&tuiflushmutex);
+	for (; msgc > 2;)
+		delmsg(msgv[2]);
+	pthread_mutex_unlock(&tuiflushmutex);}
+
 // local funcs
 static void newmsg(int row, int col, int cols, char* buf) {
 	char* odraw = malloc(cols + 1);
@@ -59,12 +66,38 @@ static void newmsg(int row, int col, int cols, char* buf) {
 
 	msgv[msgc - 1] = msg;}
 
+static void delmsg(msg_t* msg) {
+	int msgi = -1;
+	for (int i = 0; i < msgc; ++i) { 
+		if (msgv[i] == msg && msgi == -1) 
+			msgi = i;
+		if (i > msgi && msgi != -1)
+			msgv[i - 1] = msgv[i];}
+	
+	if (msgi == -1) {
+		abort();
+		return;}
+
+	free(msg->odraw);
+	free(msg);
+
+	if (msgc > 1) {
+		msgv = realloc(msgv, --msgc * sizeof(msg_t*));
+		
+		if (!msgv)
+			abort();
+
+		return;}
+	free(msgv);
+	msgv = 0;}
+
 static void delallmsgs() {
 	for (int i = 0; i < msgc; ++i) {
 		free(msgv[i]->odraw);
 		free(msgv[i]);}
 	free(msgv);
-	msgv = 0;}
+	msgv = 0;
+	msgc = 0;}
 
 static int updatemsg(msg_t* msg) {
 	char draw[msg->cols + 1];

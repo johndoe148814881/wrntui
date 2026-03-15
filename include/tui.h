@@ -7,6 +7,7 @@
 #include "info.h"
 #include "msg.h"
 #include "list.h"
+#include "win.h"
 #include <pthread.h>
 #define CMDSUCCESS 0
 #define CMDINVALID -1
@@ -40,11 +41,13 @@ extern char* MOVECURS(int, int);
 #define FORESUCTTY "\033[32m" 
 // variable attributes influenced by terminal context
 extern char* tuiforev[TUIFOREC];
+extern char* tuiforewhi;
 extern char* tuiforeerr;
 extern char* tuiforesuc;
 
 // global vars
 extern pthread_mutex_t tuiflushmutex;
+extern pthread_mutex_t tuiwinmutex;
 extern int* tuirunning;
 extern int tuiwidth, tuiheight;
 extern int tuiframerate;

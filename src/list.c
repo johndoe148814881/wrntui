@@ -9,7 +9,7 @@ typedef struct {
 	int id;
 	void** valuev;
 	void** ovaluev;
-	char* odraw;} record_t;
+	char** valueodraws;} record_t;
 
 typedef struct { 
 	int cols;
@@ -25,7 +25,8 @@ typedef struct {
 	int recordc;
 	int fieldc;
 	record_t** recordv;
-	field_t** fieldv;} list_t;
+	field_t** fieldv;
+	char** fieldodraws;} list_t;
 
 // local vars
 static int lastid = 0;
@@ -36,12 +37,14 @@ static void resetlist(int, int, int, int);
 static void addfield(int, char*, char*, int);
 static void addrecord(void**);
 static void delrecord(record_t*);
-static int updaterecord(record_t*);
-static void drawrecord(record_t*);
+static int updatelist();
+static void drawlist();
 
 // global funcs
 void listnew(int row, int col, int rows, int cols) {
-	resetlist(row, col, rows, cols);}
+	pthread_mutex_lock(&tuiflushmutex);
+	resetlist(row, col, rows, cols);
+	pthread_mutex_unlock(&tuiflushmutex);}
 
 void listaddfield(int cols, char* clr, char* name, int typeid) {
 	pthread_mutex_lock(&tuiflushmutex);
@@ -66,60 +69,105 @@ void listdelrecord(void* firstvalue) {
 
 void listdraw() {
 	pthread_mutex_lock(&tuiflushmutex);
-	for (int i = 0; i < list.recordc; ++i)
-		if (!updaterecord(list.recordv[i]))
-			drawrecord(list.recordv[i]);
+	if (!updatelist())
+		drawlist();
 	pthread_mutex_unlock(&tuiflushmutex);}
 
 void listfree() {
-	resetlist(0, 0, 0, 0);}
+	pthread_mutex_lock(&tuiflushmutex);
+	resetlist(0, 0, 0, 0);
+	pthread_mutex_unlock(&tuiflushmutex);}
 
 // local funcs
 static void resetlist(int row, int col, int rows, int cols) {
+	// free fieldv and fieldodraws
+	for (int i = 0; i < list.fieldc; ++i) {
+		free(list.fieldv[i]);
+		free(list.fieldodraws[i]);}
+	free(list.fieldv);
+	free(list.fieldodraws);
+	list.fieldv = 0;
+	list.fieldodraws = 0;
+
+	// free recordv
+	for (int i = 0; i < list.recordc; ++i) {
+		for (int ii = 0; ii < list.fieldc; ++ii) {
+			free(list.recordv[i]->valueodraws[ii]);
+			free(list.recordv[i]->ovaluev[ii]);}
+		free(list.recordv[i]->ovaluev);
+		free(list.recordv[i]->valueodraws);
+		free(list.recordv[i]);}
+	free(list.recordv);
+	list.recordv = 0;
+	
+	// set list stack values
 	list.row = row;
 	list.col = col;
 	list.rows = rows;
 	list.cols = cols;
-
-	for (int i = 0; i < list.fieldc; ++i)
-		free(list.fieldv[i]);
-	free(list.fieldv);
-	list.fieldv = 0;
-
-	for (int i = 0; i < list.recordc; ++i) {
-		for (int ii = 0; ii < list.fieldc; ++ii)
-			free(list.recordv[i]->ovaluev[ii]);
-		free(list.recordv[i]->ovaluev);
-		free(list.recordv[i]->odraw);
-		free(list.recordv[i]);}
-	free(list.recordv);
 	list.fieldc = 0;
-	list.recordc = 0;
-	list.recordv = 0;}
+	list.recordc = 0;}
 
 static void addfield(int cols, char* clr, char* name, int typeid) {
+	// allocate memory
 	field_t* field = malloc(sizeof(field_t));
-	list.fieldv = realloc(list.fieldv, ++list.fieldc * sizeof(field_t*));
-	if (!field || !list.fieldv) {
+	list.fieldv = realloc(list.fieldv, (list.fieldc + 1) * sizeof(field_t*));
+	list.fieldodraws = realloc(list.fieldodraws, (list.fieldc + 1) * sizeof(char*));
+
+	// validate allocated memory
+	if (!field || !list.fieldv || !list.fieldodraws) {
 		abort();
 		return;}
+
+	// add field to fieldv
+	list.fieldv[list.fieldc++] = field;
+
+	// allocate child memory
+	list.fieldodraws[list.fieldc - 1] = malloc(cols);
+
+	// validate child memory
+	if (!list.fieldodraws[list.fieldc - 1]) {
+		abort();
+		return;}
+
+	// set child memory to identity value
+	memset(list.fieldodraws[list.fieldc - 1], 0, cols);
+
+	// set field stack values
 	field->cols = cols;
 	field->clr = clr;
 	field->name = name;
-	field->typeid = typeid;
-	list.fieldv[list.fieldc - 1] = field;}
+	field->typeid = typeid;}
 
 static void addrecord(void** values) {
+	// allocate memory
 	record_t* record = malloc(sizeof(record_t));
-	list.recordv = realloc(list.recordv, ++list.recordc * sizeof(record_t*));
+	list.recordv = realloc(list.recordv, (list.recordc + 1) * sizeof(record_t*));
+	
+	// validate allocated memory
 	if (!record || !list.recordv) {
 		abort();
 		return;}
+	
+	// add record to recordv
+	list.recordv[list.recordc++] = record;
+
+	// allocate children memory
+	record->valuev = malloc(sizeof(void*) * list.fieldc);
 	record->ovaluev = malloc(sizeof(void*) * list.fieldc);
-	if (!record->ovaluev) {
+	record->valueodraws = malloc(sizeof(char*) * list.fieldc);
+
+	// validate allocated children memory
+	if (!record->valuev || !record->ovaluev || !record->valueodraws) {
 		abort();
 		return;}
-	for (int i = 0; i < list.fieldc; ++i)
+
+	// allocate children memory of children, and/or set their values
+	for (int i = 0; i < list.fieldc; ++i) {
+		// valuev - set to parsed arguments
+		record->valuev[i] = values[i];
+		
+		// ovaluev - allocate enough memory depending on each field's type, and set their identity values
 		switch (list.fieldv[i]->typeid) {
 		case LISTINT:
 			record->ovaluev[i] = malloc(sizeof(int));
@@ -130,104 +178,139 @@ static void addrecord(void** values) {
 			break;
 		case LISTFRAC:
 			record->ovaluev[i] = malloc(sizeof(frac_t));
-			if (!record->ovaluev[i]) {
-				abort();
-				return;}
 			*(frac_t*)record->ovaluev[i] = fracnew(0, 1);
-			break;
-		default:
+			break;}
+
+		// valueodraws - allocate enough memory depending on each field's cols, and set their identity values
+		record->valueodraws[i] = malloc(list.fieldv[i]->cols);
+		memset(record->valueodraws[i], 0, list.fieldv[i]->cols);
+		
+		// validate allocated children memory
+		if (!record->ovaluev[i] || !record->valueodraws[i]) {
 			abort();
-			return;}
-	record->id = ++lastid;
-	record->valuev = values;
-	record->odraw = 0;
-	list.recordv[list.recordc - 1] = record;}
+			return;}}
+	
+	// set record stack values
+	record->id = ++lastid;}
 
 static void delrecord(record_t* record) {
+	// bring following records down one place in recordv
 	int recordi = -1;
 	for (int i = 0; i < list.recordc; ++i) { 
-		if (list.recordv[i] == record && recordi == -1)
+		if (list.recordv[i] == record && recordi == -1) 
 			recordi = i;
 		if (i > recordi && recordi != -1)
 			list.recordv[i - 1] = list.recordv[i];}
-	if (recordi == -1)
-		return;
-	for (int i = 0; i < list.fieldc; ++i)
-		free(record->ovaluev[i]);
-	free(record->ovaluev);
-	free(record->odraw);
-	free(record);
-	list.recordv = realloc(list.recordv, --list.recordc * sizeof(record_t*));
-	if (!list.recordv && list.recordc > 0) {
+	
+	// validate record exists
+	if (recordi == -1) {
 		abort();
-		return;}}
-
-static int updaterecord(record_t* record) {
-	char* draw = malloc(list.cols + 1);
-	if (!draw) {
-		abort();
-		return 1;}
-	memset(draw, ' ', list.cols);
-	draw[list.cols] = '\0';
-
-	int coloffset = 0;
+		return;}
+	
+	// free allocated memory
 	for (int i = 0; i < list.fieldc; ++i) {
-		char* fielddraw = malloc(list.fieldv[i]->cols + 1);
-		if (!fielddraw) {
+		free(record->ovaluev[i]);
+		free(record->valueodraws[i]);}
+	free(record->ovaluev);
+	free(record->valueodraws);
+	free(record);
+	
+	// reallocate recordv to remove the duplicate record at the end
+	if (list.recordc > 1) {
+		list.recordv = realloc(list.recordv, --list.recordc * sizeof(record_t*));
+		
+		// validate reallocated memory
+		if (!list.recordv && list.recordc > 0) {
+			abort();
+			return;}}
+	else {
+		free(list.recordv);
+		list.recordv = 0;}}
+
+static int updatelist() {
+	int updated = 1;
+
+	// return if no fields
+	if (list.fieldc < 1)
+		return 1;
+	
+	// update record odraws
+	for (int i = 0; i < list.recordc; ++i) {
+	for (int ii = 0; ii < list.fieldc; ++ii) {
+		record_t* record = list.recordv[i];
+		field_t* field = list.fieldv[ii];
+
+		// allocate memory for valuedraw
+		char* valuedraw = malloc(field->cols);
+		
+		// validate allocated memory
+		if (!valuedraw) {
 			abort();
 			return 1;}
-		memset(fielddraw, ' ', list.fieldv[i]->cols);
-		fielddraw[list.fieldv[i]->cols] = '\0';
-
-		int len;
-		switch (list.fieldv[i]->typeid) {
+		
+		// set valuedraw
+		memset(valuedraw, 0, field->cols);
+		switch (field->typeid) {
 		case LISTINT:
-			if (record->odraw &&
-					*(int*)record->valuev[i] == *(int*)record->ovaluev[i]) {
-				strncpy(draw + coloffset, record->odraw + coloffset, list.fieldv[i]->cols);
-				free(fielddraw);
-				coloffset += list.fieldv[i]->cols;
-				continue;}
-			*(int*)record->ovaluev[i] = *(int*)record->valuev[i];
-			len = snprintf(fielddraw, list.fieldv[i]->cols + 1, "%d", *(int*)record->valuev[i]);
+			snprintf(valuedraw, field->cols, "%d", *(int*)record->ovaluev[ii]);
 			break;
 		case LISTFRAC:
-			if (record->odraw &&
-					fraccmp((frac_t*)record->valuev[i], (frac_t*)record->ovaluev[i]) == 0) {
-				strncpy(draw + coloffset, record->odraw + coloffset, list.fieldv[i]->cols);
-				free(fielddraw);
-				coloffset += list.fieldv[i]->cols;
-				continue;}
-			*(frac_t*)record->ovaluev[i] = *(frac_t*)record->valuev[i];
-			len = snprintf(fielddraw, list.fieldv[i]->cols + 1, "%.17g", fractod((frac_t*)record->valuev[i]));
-			break;
-		default:
-			abort();
-			return 1;}
+			snprintf(valuedraw, list.fieldv[ii]->cols, "%.17g", fractod((frac_t*)record->ovaluev[ii]));
+			break;}
+		
+		// update odraw and ovalues if valuedraw is different
+		if (strcmp(valuedraw, record->valueodraws[ii]) != 0) {
+			free(record->valueodraws[ii]);
+			record->valueodraws[ii] = valuedraw;
+			
+			switch (field->typeid) {
+			case LISTINT: 
+				*(int*)record->ovaluev[ii] = *(int*)record->valuev[ii];
+				break;	
+			case LISTFRAC:
+				*(frac_t*)record->ovaluev[ii] = *(frac_t*)record->valuev[ii];
+				break;}
 
-		len = len < 0 ? 0 : len;
-		len = len >= list.fieldv[i]->cols ? list.fieldv[i]->cols : len;
-		memset(fielddraw + len, ' ', list.fieldv[i]->cols - len);
+			updated = 0;}
+		else 
+			free(valuedraw);}}
 
-		strncpy(draw + coloffset, fielddraw, list.fieldv[i]->cols);
-		free(fielddraw);
-		coloffset += list.fieldv[i]->cols;}
+	// update fieldodraws
+	if (**list.fieldodraws == 0)
+		for (int i = 0; i < list.fieldc; ++i) {
+			snprintf(list.fieldodraws[i], list.fieldv[i]->cols, "%s", list.fieldv[i]->name);
+			updated = 0;}
 
-	if (record->odraw && strcmp(draw, record->odraw) == 0) {
-		free(draw);
-		return 1;}
+	return updated;}
 
-	free(record->odraw);
-	record->odraw = draw;
-	return 0;}
+static void drawlist() {
+	for (int i = 0; i < list.recordc; ++i) {
+	int coloffset = 0;
+	for (int ii = 0; ii < list.fieldc; ++ii) {
+		field_t* field = list.fieldv[ii];
+		record_t* record = list.recordv[i];
+	
+		// draw formatted list fieldodraws as field titles
+		if (i == 0) {
+			char* fielddraw = malloc(field->cols + 1);
+			int len = sprintf(fielddraw, "%.*s", field->cols, list.fieldodraws[ii]);
+			memset(fielddraw + len, 0, field->cols - len + 1);
 
-static void drawrecord(record_t* record) {
-	int recordi = 0;
-	for (; recordi < list.recordc; ++recordi)
-		if (record == list.recordv[recordi])
-			break;
-	int pos = list.col;
-	for (int i = 0; i < list.fieldc; ++i) {
-		printf("%s%s", MOVECURS(list.row + recordi + 1, pos), list.fieldv[i]->clr);
-		pos += list.fieldv[i]->cols;}
-	printf("%s%s%s", MOVECURS(list.row + recordi + 1, list.col), record->odraw, CLRATTRS);}
+			char* whitespaces = malloc(field->cols - len + 1);
+			memset(whitespaces, ' ', field->cols - len);
+			whitespaces[field->cols - len] = 0;
+
+			printf("%s%s%s%s%s%s", MOVECURS(list.row, list.col + coloffset), field->clr, BOLD, fielddraw, CLRATTRS, whitespaces);
+			free(fielddraw);
+			free(whitespaces);}
+		
+		// draw formatted record valueodraws as fields
+		char* valuedraw = malloc(field->cols + 1);
+		int len = sprintf(valuedraw, "%.*s", field->cols, record->valueodraws[ii]);
+		memset(valuedraw + len, ' ', field->cols - len);
+		valuedraw[field->cols] = 0;
+
+		printf("%s%s%s%s", MOVECURS(list.row + 1 + i, list.col + coloffset), field->clr, valuedraw, CLRATTRS);
+		free(valuedraw);
+
+		coloffset += field->cols;}}}

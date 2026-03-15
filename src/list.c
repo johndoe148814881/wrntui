@@ -115,9 +115,8 @@ static void addfield(int cols, char* clr, char* name, int typeid) {
 	list.fieldodraws = realloc(list.fieldodraws, (list.fieldc + 1) * sizeof(char*));
 
 	// validate allocated memory
-	if (!field || !list.fieldv || !list.fieldodraws) {
+	if (!field || !list.fieldv || !list.fieldodraws) 
 		abort();
-		return;}
 
 	// add field to fieldv
 	list.fieldv[list.fieldc++] = field;
@@ -126,9 +125,8 @@ static void addfield(int cols, char* clr, char* name, int typeid) {
 	list.fieldodraws[list.fieldc - 1] = malloc(cols);
 
 	// validate child memory
-	if (!list.fieldodraws[list.fieldc - 1]) {
+	if (!list.fieldodraws[list.fieldc - 1])
 		abort();
-		return;}
 
 	// set child memory to identity value
 	memset(list.fieldodraws[list.fieldc - 1], 0, cols);
@@ -145,9 +143,8 @@ static void addrecord(void** values) {
 	list.recordv = realloc(list.recordv, (list.recordc + 1) * sizeof(record_t*));
 	
 	// validate allocated memory
-	if (!record || !list.recordv) {
+	if (!record || !list.recordv) 
 		abort();
-		return;}
 	
 	// add record to recordv
 	list.recordv[list.recordc++] = record;
@@ -158,9 +155,8 @@ static void addrecord(void** values) {
 	record->valueodraws = malloc(sizeof(char*) * list.fieldc);
 
 	// validate allocated children memory
-	if (!record->valuev || !record->ovaluev || !record->valueodraws) {
+	if (!record->valuev || !record->ovaluev || !record->valueodraws) 
 		abort();
-		return;}
 
 	// allocate children memory of children, and/or set their values
 	for (int i = 0; i < list.fieldc; ++i) {
@@ -171,9 +167,8 @@ static void addrecord(void** values) {
 		switch (list.fieldv[i]->typeid) {
 		case LISTINT:
 			record->ovaluev[i] = malloc(sizeof(int));
-			if (!record->ovaluev[i]) {
+			if (!record->ovaluev[i]) 
 				abort();
-				return;}
 			*(int*)record->ovaluev[i] = 0;
 			break;
 		case LISTFRAC:
@@ -186,9 +181,8 @@ static void addrecord(void** values) {
 		memset(record->valueodraws[i], 0, list.fieldv[i]->cols);
 		
 		// validate allocated children memory
-		if (!record->ovaluev[i] || !record->valueodraws[i]) {
-			abort();
-			return;}}
+		if (!record->ovaluev[i] || !record->valueodraws[i]) 
+			abort();}
 	
 	// set record stack values
 	record->id = ++lastid;}
@@ -203,9 +197,8 @@ static void delrecord(record_t* record) {
 			list.recordv[i - 1] = list.recordv[i];}
 	
 	// validate record exists
-	if (recordi == -1) {
+	if (recordi == -1)
 		abort();
-		return;}
 	
 	// free allocated memory
 	for (int i = 0; i < list.fieldc; ++i) {
@@ -220,9 +213,8 @@ static void delrecord(record_t* record) {
 		list.recordv = realloc(list.recordv, --list.recordc * sizeof(record_t*));
 		
 		// validate reallocated memory
-		if (!list.recordv && list.recordc > 0) {
-			abort();
-			return;}}
+		if (!list.recordv && list.recordc > 0) 
+			abort();}
 	else {
 		free(list.recordv);
 		list.recordv = 0;}}
@@ -244,9 +236,8 @@ static int updatelist() {
 		char* valuedraw = malloc(field->cols);
 		
 		// validate allocated memory
-		if (!valuedraw) {
+		if (!valuedraw) 
 			abort();
-			return 1;}
 		
 		// set valuedraw
 		memset(valuedraw, 0, field->cols);

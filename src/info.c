@@ -17,7 +17,7 @@ typedef struct {
 	void* ovalue;} info_t;
 
 // local vars
-static info_t** infov = 0; static int infoc = 0;
+static info_t* infov = 0; static int infoc = 0;
 
 // local func defs
 static void newinfo(int, int, int, char*, char*, void*, int);
@@ -34,8 +34,8 @@ void infonew(int row, int col, int cols, char* clr, char* name, void* value, int
 void infodrawall() {
 	pthread_mutex_lock(&tuiflushmutex);
 	for (int i = 0; i < infoc; ++i)
-		if (!updateinfo(infov[i]))
-			drawinfo(infov[i]);
+		if (!updateinfo(&infov[i]))
+			drawinfo(&infov[i]);
 	pthread_mutex_unlock(&tuiflushmutex);}
 
 void infofreeall() {
@@ -46,58 +46,40 @@ void infofreeall() {
 // local funcs
 static void newinfo(int row, int col, int cols, char* clr, char* name, void* value, int type) {
 	char* odraw = malloc(cols + 1);
-	info_t* info = malloc(sizeof(info_t));
 	infov = realloc(infov, ++infoc * sizeof(info_t*));
 	
-	if (!odraw || !info || !infov) {
+	if (!odraw || !infov) 
 		abort();
-		return;}
 	
 	void* ovalue;
 	switch (type) {
 	case INFOINT: {
 		int* ointvalue = malloc(sizeof(int));
-		if (!ointvalue) {
+		if (!ointvalue)
 			abort();
-			return;}
 		*ointvalue = 0;
 		ovalue = (void*)ointvalue;
 		break;}
 	case INFOFRAC: {
 		frac_t* ofracvalue = malloc(sizeof(frac_t));
-		if (!ofracvalue) {
+		if (!ofracvalue)
 			abort();
-			return;}
 		*ofracvalue = fracnew(0, 1);
 		ovalue = (void*)ofracvalue;
 		break;}
 	default:
-		abort();
-		return;}
+		abort();}
 
-	memset(odraw, '\0', cols + 1);
-	
-	info->row = row;
-	info->col = col;
-	info->cols = cols;
-	info->clr = clr;
-	info->name = name;
-	info->odraw = odraw;
-	info->value = value;
-	info->ovalue = ovalue;
-	info->type = type;
-
-	infov[infoc - 1] = info;} 
+	memset(odraw, 0, cols + 1);
+	infov[infoc - 1] = (info_t){row, col, cols, type, clr, name, odraw, value, ovalue};} 
 
 static void delallinfos() {
 	for (int i = 0; i < infoc; ++i) {
-		free(infov[i]->odraw);
-		free(infov[i]->ovalue);
-		free(infov[i]);}
-
+		free(infov[i].odraw);
+		free(infov[i].ovalue);}
 	free(infov);
-	infoc = 0;
-	infov = 0;}
+	infov = 0;
+	infoc = 0;}
 
 static int updateinfo(info_t* info) {
 	int len;

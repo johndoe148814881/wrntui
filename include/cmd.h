@@ -8,7 +8,7 @@
 extern int cmdprefix;
 
 extern void cmdnew(char* command, int (*function)(int argc, char** argv));
-extern int cmdexecute(char*);
+extern int cmdexecute(char* string);
 extern void cmdfreeall();
 
 #endif

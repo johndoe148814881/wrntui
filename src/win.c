@@ -36,6 +36,10 @@ void winfreeall() {
 // local funcs
 static void newwin(char* name, void (*onshow)(void)) {
 	winv = realloc(winv, sizeof(win_t) * ++winc);
+	
+	if (!winv)
+		abort();
+
 	winv[winc - 1] = (win_t){name, onshow};}
 
 static void delallwins() {

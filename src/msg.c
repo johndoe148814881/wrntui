@@ -13,7 +13,7 @@ typedef struct {
 	char* odraw;} msg_t;
 
 // local vars
-static msg_t** msgv = 0; static int msgc = 0;
+static msg_t* msgv = 0; static int msgc = 0;
 
 // local func defs
 static void newmsg(int, int, int, char*);
@@ -31,8 +31,8 @@ void msgnew(int row, int col, int cols, char* buf) {
 void msgdrawall() {
 	pthread_mutex_lock(&tuiflushmutex);
 	for (int i = 0; i < msgc; ++i)
-		if (!updatemsg(msgv[i]))
-			drawmsg(msgv[i]);
+		if (!updatemsg(&msgv[i]))
+			drawmsg(&msgv[i]);
 	pthread_mutex_unlock(&tuiflushmutex);}
 
 void msgfreeall() {
@@ -43,43 +43,32 @@ void msgfreeall() {
 void msgfreealluser() {
 	pthread_mutex_lock(&tuiflushmutex);
 	for (; msgc > 2;)
-		delmsg(msgv[2]);
+		delmsg(&msgv[2]);
 	pthread_mutex_unlock(&tuiflushmutex);}
 
 // local funcs
 static void newmsg(int row, int col, int cols, char* buf) {
 	char* odraw = malloc(cols + 1);
-	msg_t* msg = malloc(sizeof(msg_t));
 	msgv = realloc(msgv, ++msgc * sizeof(msg_t*));
 	
-	if (!odraw || !msg || !msgv) {
+	if (!odraw || !msgv) 
 		abort();
-		return;}
 	
 	memset(odraw, '\0', cols + 1);
-	
-	msg->row = row;
-	msg->col = col;
-	msg->cols = cols;
-	msg->buf = buf;
-	msg->odraw = odraw;
-
-	msgv[msgc - 1] = msg;}
+	msgv[msgc - 1] = (msg_t){row, col, cols, buf, odraw};}
 
 static void delmsg(msg_t* msg) {
 	int msgi = -1;
 	for (int i = 0; i < msgc; ++i) { 
-		if (msgv[i] == msg && msgi == -1) 
+		if (&msgv[i] == msg && msgi == -1) 
 			msgi = i;
 		if (i > msgi && msgi != -1)
 			msgv[i - 1] = msgv[i];}
 	
-	if (msgi == -1) {
+	if (msgi == -1) 
 		abort();
-		return;}
 
 	free(msg->odraw);
-	free(msg);
 
 	if (msgc > 1) {
 		msgv = realloc(msgv, --msgc * sizeof(msg_t*));
@@ -92,9 +81,8 @@ static void delmsg(msg_t* msg) {
 	msgv = 0;}
 
 static void delallmsgs() {
-	for (int i = 0; i < msgc; ++i) {
-		free(msgv[i]->odraw);
-		free(msgv[i]);}
+	for (int i = 0; i < msgc; ++i) 
+		free(msgv[i].odraw);
 	free(msgv);
 	msgv = 0;
 	msgc = 0;}

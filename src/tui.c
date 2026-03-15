@@ -96,8 +96,7 @@ static void parseargs(void* args) {
 	(void)args;}
 
 static void initin() {
-	signal(SIGINT, sighandler); // handle sigint and sigabrt safely
-	signal(SIGABRT, sighandler);
+	signal(SIGINT, sighandler); // handle sigint safely
 	
 	setvbuf(stdout, 0, _IOFBF, 8192);  // disable printf automatically flushing to stdout
 	
@@ -135,9 +134,8 @@ static void initout() {
 	tuiforewhi = FOREWHITTY;
 
 	struct winsize w; // get width and height of terminal/tty
-	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1 || w.ws_row == 0 || w.ws_col == 0) {
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1 || w.ws_row == 0 || w.ws_col == 0) 
 		abort();
-		return;}
 	tuiheight = w.ws_row; tuiwidth = w.ws_col;
 
 	printf("%s%s%s%s%s", SAVECURS, HIDECURS, ALTBUF, CLRBUF, CLRATTRS); // enter alt buffer
@@ -146,9 +144,8 @@ static void initout() {
 	cmdbufvis = malloc(tuiwidth);
 	msgbuf = malloc(tuiwidth);
 
-	if (!cmdbuf || !cmdbufvis || !msgbuf) {
+	if (!cmdbuf || !cmdbufvis || !msgbuf) 
 		abort();
-		return;}
 
 	memset(cmdbuf, 0, tuiwidth);
 	memset(cmdbufvis, 0, tuiwidth);
@@ -202,7 +199,7 @@ static void iterin() {
 
 static void iterout() {
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-
+	
 	if (!showedhomewin)
 		if (!(showedhomewin = !winshow("main")))
 			return;
@@ -240,7 +237,11 @@ static void exitout() {
 	listfree();
 	winfreeall();
 
-	printf("%s%s%s%s%s\n%s\n", CLRATTRS, CLRBUF, REGBUF, LOADCURS, SHOWCURS, exitmsg);
+	printf("%s%s%s%s%s", CLRATTRS, CLRBUF, REGBUF, LOADCURS, SHOWCURS);
+
+	if (*exitmsg != 0)
+		printf("%s\n", exitmsg);
+
 	fflush(stdout);} // restore regular buffer
 
 static int q(int argc, char** argv) {

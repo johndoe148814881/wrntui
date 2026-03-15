@@ -6,54 +6,23 @@ typedef struct {
 	int key;
 	void (*func)(void);} bind_t;
 
-// local func defs
-static void newbind(int, void (*)(void));
-static void delbind(bind_t*);
-
 // local vars
-bind_t** bindv = 0; int bindc = 0;
+bind_t* bindv = 0; int bindc = 0;
 
 // global funcs
 void bindnew(int key, void (*func)(void)) {
-	newbind(key, func);}
+	bindv = realloc(bindv, ++bindc * sizeof(bind_t));
+	if (!bindv)
+		abort();
+	bindv[bindc - 1] = (bind_t){key, func};}
 
 void bindexecute(int key) {
 	for (int i = 0; i < bindc; ++i)
-		if (key == bindv[i]->key)
-			bindv[i]->func();}
+		if (key == bindv[i].key)
+			bindv[i].func();}
 
 void bindfreeall() {
-	for (; bindc > 0;)
-		delbind(bindv[0]);}
-
-// local funcs
-static void newbind(int key, void (*func)(void)) {
-	bind_t* bind = malloc(sizeof(bind_t));
-	bindv = realloc(bindv, ++bindc * sizeof(bind_t*));
-	
-	if (!bind || !bindv) {
-		abort();
-		return;}
-	
-	bind->key = key;
-	bind->func = func;
-
-	bindv[bindc - 1] = bind;}
-
-static void delbind(bind_t* bind) {
-	int bindi = -1;
-	for (int i = 0; i < bindc; ++i) { 
-		if (bindv[i] == bind && bindi == -1)
-			bindi = i;
-		if (i > bindi && bindi != -1)
-			bindv[i - 1] = bindv[i];}
-	if (bindi == -1)
-		return;
-
-	free(bind);
-	
-	bindv = realloc(bindv, --bindc * sizeof(bind_t*));
-	if (!bindv && bindc > 0) {
-		abort();
-		return;}}
+	free(bindv);
+	bindv = 0;
+	bindc = 0;}
 
